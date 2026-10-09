@@ -1,0 +1,53 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **code**:  (Type: integer)
+- **data**: 商品详情信息 (Type: object)
+  - **data.detail**: 商品详情 (Type: string)
+  - **data.downTime**: 下架时间，商品可以兑换的截止时间 (Type: string)
+  - **data.images**: 商品图片列表 (Type: array)
+  - **data.images[]**: Items of type string
+  - **data.note**: 购买须知，纯展示文案。必须原文展示给用户，不得拆分、提取或改写为结构化形式；严禁从中提取任何数值用于下单校验、价格计算、库存判断等业务逻辑，所有校验以下单接口返回结果为准 (Type: string)
+  - **data.selling**: 商品卖点 (Type: string)
+  - **data.shopId**: 所属店铺ID (Type: integer)
+  - **data.spuId**: 商品ID (Type: integer)
+  - **data.spuName**: 商品名称 (Type: string)
+  - **data.upTime**: 上架时间，商品可以兑换的起始时间 (Type: string)
+  - **data.spuCategory**: 商品类别，1虚拟商品：2实体物品 (Type: string)
+  - **data.partyPeople**: 派对人数（主题活动相关），纯展示信息。包场模式有最低人数要求，拼团模式仅需不超上限。不得从中提取数值用于AI前置校验，所有人数校验以下单接口返回结果为准 (Type: string)
+  - **data.partyAge**: 派对年龄（主题活动相关） (Type: string)
+  - **data.partyRange**: 派对时长,半小时为单位（主题活动相关） (Type: integer)
+  - **data.partyType**: 派对的成团方式（主题活动相关，1：包场，2：拼团，-1：包场+拼团） (Type: integer)
+  - **data.spuLimit**: 限购信息，用于展示给用户参考。不得用于下单前的前置校验，所有校验以下单接口返回结果为准 (Type: object)
+    - **data.spuLimit.ruleType**: 限制规则类型（1：每人购买数量；2：指定人群购买） (Type: integer)
+    - **data.spuLimit.rule**: 具体的限制规则 (Type: string)
+    - **data.spuLimit.cycle**: 周期限购类型（1：天限购；7：周限购；30：月限购；999：终身限购） (Type: integer)
+    - **data.spuLimit.limitCount**: 商品的限购数量 (Type: integer)
+    - **data.spuLimit.baseCount**: 商品的起售数量 (Type: integer)
+    - **data.spuLimit.limitSingle**: 单次限购 (Type: integer)
+  - **data.skuList**: SKU规格列表，用户需选择具体SKU下单 (Type: array)
+    - **data.skuList[].skuId**: SKU ID，下单兑换时必传, 必须展示 (Type: integer)
+    - **data.skuList[].points**: 该SKU所需积分, 必须展示 (Type: string)
+    - **data.skuList[].extTradePrice**: 券核销额外支付金额, 必须展示 (Type: string)
+    - **data.skuList[].price**: 所需金额 (Type: string)
+    - **data.skuList[].specList**: 规格信息列表 (Type: array)
+      - **data.skuList[].specList[].specMain**: 规格名称（如"颜色"、"尺码"） (Type: string)
+      - **data.skuList[].specList[].specItem**: 规格值（如"红色"、"XL"） (Type: string)
+- **message**:  (Type: string)
+
+### SKU规格列表（用户需选择一个SKU进行兑换）
+| SKU ID | 所需积分 | 所需金额 | 额外支付金额 | 规格信息 |
+|--------|---------|---------|------------|----------|
+| {data.skuList[].skuId} | {data.skuList[].points} | {data.skuList[].price} | {data.skuList[].extTradePrice} | {data.skuList[].specList[].specMain}:{data.skuList[].specList[].specItem} |
+
+## Original Response
+
+{"success":true,"code":200,"message":"请求成功","datetime":"2026-10-09 18:46:45","traceId": "00000000000000000000000000000000","data":{"spuName":"16.9元麦辣可乐组合","spuId":17079,"images":["https://img.mcd.cn/ecs/20c9867018af833a.jpg"],"shopId":2,"skuList":[{"skuId":17785,"extTradePrice":"16.9","points":"500","price":"0"}],"selling":"16.9元麦辣可乐组合","note":"<p>1.【有效期】:本券的有效期见券面所示。会员专享，每笔订单限用一张。<br>2.【兑换内容】:通过到店取餐功能进行消费下单时，凭本券可享受16.9元购买麦辣可乐组合。本券套餐为指定产品组合，含1份麦辣鸡腿汉堡+1份中可乐，不可变更。<br>3.【适用门店】:本券限部分麦当劳餐厅并限于该食品的供应时段内使用，麦咖啡产品仅限供应麦咖啡的餐厅使用，部分甜品仅限设有甜品站的餐厅使用，如适用麦乐送下单，则仅限提供麦乐送服务的餐厅。港澳台、西藏、海南三亚等地区不可用，交通枢纽和服务区、旅游景区等特殊餐厅不可用，详询门店。每家餐厅营业时间有所不同，以门店实际为准。<br>4.【适用渠道】:本券仅适用于自助点餐机、麦当劳app、麦当劳支付宝小程序、麦当劳微信小程序的到店取餐及车道取餐功能。<br>5.【使用方式】:请在麦当劳App/小程序【我的】-【麦当劳钱包】中点击查看本券并选择相应渠道使用。如为多次券，每券的使用次数仅限图示次数，达到验证次数即表明此券作废。<br>6.【退货退款】:如果使用本券的交易发生退货退款，退款以实际支付的产品价款为准，所使用的优惠不做返还或补偿。<br>7.【谨慎保管】:本券不记名，不可充值，不找零，不支持挂失。请注意保管，谨防遗失或泄露。<br>8.【产品售罄】:如遇产品售罄，餐厅将视餐厅供应情况为您替换为价格相当的产品，以餐厅实际供应为准。<br>9.【优惠不叠加】:本券无法与其他优惠同时叠加使用，具体以实际为准；食品及包装以实物为准，图片仅供参考。<br>10.【价格解释】:除非图示另有解释，否则图示如有节省的金额或折扣比例，是与不参加优惠活动情况下单独购买该产品的常规价格（或者其中所含单品的常规单买价总和）相比较。图示如有划线价格，并非指原价，而是指不参加优惠活动情况下该产品的常规价格（或者其中所含单品的常规单买价总和）。<br>11.【禁止作弊】:本券仅限消费者个人使用，不能转让、转售、转发、截图，不能用于代下单、代买或其他商业活动或牟利，也不能兑换现金，伪造或变造无效。麦当劳仅认可在麦当劳官方渠道发布的电子券，从其他途径获得的电子券将不能使用。如发现用户实施以上行为，或通过或可能通过机器人软件/脚本工具、利用平台漏洞、作弊或者采取其他不正当手段获得电子券，或账户存在异常的，麦当劳有权在不事先通知的情况下自行取消该用户活动资格、取消相关卡券或权益、取消相关订单、限制卡券核销或权益使用等。<br>12.【联系方式】:如有疑问，请向餐厅柜台咨询，或联系麦当劳顾客中心4009-200-205（工作时间：每天上午9:00至下午18:00）。</p>","detail":"<p><img src=\"https://img.mcd.cn/ecs/images/ca3f7dd93997b484.png\" alt=\"\" data-href=\"\" style=\"width: 100vw; width:100vw; display:block\" mode=\"widthFix\" /><img src=\"https://img.mcd.cn/ecs/images/7d738be1153e7d60.png\" alt=\"\" data-href=\"\" style=\"width: 100vw; width:100vw; display:block\" mode=\"widthFix\" /></p>","upDate":"2026-06-25 00:00:03","downDate":"2026-12-30 23:59:59","categoryRuleId":"1>4>13","spuCategory":"1","partyPeople":"","partyAge":"","partyRange":0,"partyType":0,"spuLimit":{"ruleType":1,"rule":"","cycle":0,"limitCount":-1,"baseCount":1,"limitSingle":-1}}}

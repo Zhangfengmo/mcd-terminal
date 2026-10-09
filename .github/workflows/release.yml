@@ -1,0 +1,123 @@
+name: release
+
+# Push a version tag to publish:  git tag v0.3.0 && git push origin v0.3.0
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - name: e2e loop test of every command (source)
+        run: python packaging/e2e.py python -m mcd_terminal
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, name: linux-x64 }
+          - { os: ubuntu-22.04-arm, name: linux-arm64 }
+          - { os: macos-15-intel, name: darwin-x64 }
+          - { os: macos-14, name: darwin-arm64 }
+          - { os: windows-latest, name: windows-x64 }
+          - { os: windows-11-arm, name: windows-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install . pyinstaller
+      - run: python packaging/build.py
+        env:
+          PYTHONIOENCODING: utf-8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcd-${{ matrix.name }}
+          path: release/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    # Publish whatever platforms built successfully; the installers report a missing platform clearly.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Checksums (stamped into the installers, plus SHA256SUMS)
+        run: |
+          ls -la release
+          python3 packaging/stamp.py release "${GITHUB_REF_NAME}"
+          grep -n "EMBEDDED_VERSION=" release/install.sh
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* --title "$TAG" --generate-notes
+          fi
+
+  # Install from the published release exactly like a user would, on each OS.
+  verify:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: packaging/e2e.py
+          sparse-checkout-cone-mode: false
+      - name: curl | bash
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/install.sh" \
+            | MCD_VERSION="${GITHUB_REF_NAME}" MCD_REPO="${{ github.repository }}" bash
+          ~/.local/bin/mcd --version
+          python3 packaging/e2e.py ~/.local/bin/mcd
+      - name: curl | bash through the China mirror (informational)
+        if: runner.os != 'Windows'
+        continue-on-error: true
+        run: |
+          rm -rf ~/.local/share/mcd-terminal ~/.local/bin/mcd
+          curl -fsSL --max-time 60 "https://gh-proxy.com/https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/install.sh" \
+            | MCD_REPO="${{ github.repository }}" bash
+          ~/.local/bin/mcd --version
+      - name: irm | iex (PowerShell 7)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:MCD_VERSION = "$env:GITHUB_REF_NAME"; $env:MCD_REPO = "${{ github.repository }}"
+          irm "https://github.com/${{ github.repository }}/releases/download/$env:GITHUB_REF_NAME/install.ps1" | iex
+          mcd --version
+          $env:PYTHONIOENCODING = "utf-8"
+          python packaging/e2e.py (Get-Command mcd).Source
+      - name: irm | iex (Windows PowerShell 5.1)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $env:MCD_VERSION = "$env:GITHUB_REF_NAME"; $env:MCD_REPO = "${{ github.repository }}"
+          irm "https://github.com/${{ github.repository }}/releases/download/$env:GITHUB_REF_NAME/install.ps1" | iex
+          mcd --version

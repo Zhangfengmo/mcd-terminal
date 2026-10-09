@@ -1,0 +1,28 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **code**:  (Type: integer)
+- **data**: 积分账户信息 (Type: object)
+  - **data.accountId**: 账户ID (Type: string)
+  - **data.accumulativePoint**: 累计积分 (Type: string)
+  - **data.availablePoint**: 可用积分 (Type: string)
+  - **data.currency**: 货币类型 (Type: string)
+  - **data.currentMouthExpirePoint**: 本月将过期积分 (Type: string)
+  - **data.expiredPoint**: 已过期积分 (Type: string)
+  - **data.frozenPoint**: 冻结积分 (Type: string)
+  - **data.lastMouthExpirePoint**: 上月已过期积分 (Type: string)
+  - **data.nextMouthExpirePoint**: 下月将过期积分 (Type: string)
+  - **data.usedPoint**: 已使用积分 (Type: string)
+- **message**:  (Type: string)
+
+## Original Response
+
+{"success":true,"code":200,"message":"请求成功","datetime":"2026-10-09 18:17:27","traceId":"00000000000000000000000000000000","data":{"availablePoint":"101","accountId":"02000000000000000000000000000","accumulativePoint":"101","currency":"麦享会积分","currentMouthExpirePoint":"0","expiredPoint":"0","frozenPoint":"0","lastMouthExpirePoint":"0","nextMouthExpirePoint":"0","usedPoint":"0"}}

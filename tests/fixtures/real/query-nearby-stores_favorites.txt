@@ -1,0 +1,10 @@
+每个门店的基本信息按单行展示：
+- **门店名称**: data[].storeName
+- **门店地址**: data[].address
+- **到店距离**: data[].distance
+- **门店编号**: data[].storeCode, 唯一编号，工具入参
+- **业务编码**: data[].beCode, 不为空时，唯一编号，工具入参
+- **支持预约**: data[].reservation，是否支持预约，true:支持，false:不支持
+当 reservation=true 时，⚠️ reservationTimeOptions 中的每一条数据都直接影响用户选择，缺少任何一条都会导致用户无法预约，严禁省略
+today=true 的日期标记星号(*)
+{"success":false,"code":600050,"message":"收藏餐厅列表为空，请您提供城市+关键词进行搜索","datetime":"2026-10-09 18:17:31","traceId":"00000000000000000000000000000000"}## 展示结果时，每个门店的 storeCode 和 beCode 必须完整展示，

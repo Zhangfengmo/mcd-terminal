@@ -1,0 +1,30 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 满意度答卷与奖券摘要 (Type: object)
+  - **data.trade_no**: 订单号 (Type: string)
+  - **data.survey_id**: 问卷编号，固定为 0002 (Type: string)
+  - **data.status**: 答卷状态: 1=已答题, -1=放弃答题, -3=配额过滤, -5=GBW答题次数过滤 (Type: integer)
+  - **data.finish_time**: 答卷完成时间, 格式 yyyy-MM-dd HH:mm:ss (Type: string)
+  - **data.overall_satisfaction**: 总体满意度分数: 5=非常满意, 4=满意, 3=一般, 2=不满意, 1=很不满意 (Type: integer)
+  - **data.satisfaction_description**: 满意度描述 (Type: string)
+  - **data.coupon_title**: 奖券标题 (Type: string)
+  - **data.coupon_trade_start_time**: 核销开始时间 (Type: string)
+  - **data.coupon_trade_end_time**: 核销结束时间 (Type: string)
+  - **data.coupon_available_redeem_count**: 剩余可核销次数 (Type: integer)
+  - **data.coupon_redeem_status**: 核销状态: 已核销 / 可核销 (Type: string)
+  - **data.coupon_order_food_types**: 点餐方式: 1=pickup到店/自取, 2=delivery外送 (Type: string)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success":false,"code":499,"message":"该订单无匹配的答卷","datetime":"2026-10-09 18:31:32","traceId": "00000000000000000000000000000000"}

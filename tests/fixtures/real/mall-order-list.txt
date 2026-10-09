@@ -1,0 +1,26 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 订单列表数据 (Type: array)
+  - **data[].hasNext**: 是否有下一页. (Type: boolean)
+  - **data[].lastId**: 本页最后的id. (Type: number)
+  - **data[].list**: 订单列表. (Type: array)
+    - **data[].list[].orderId**: 订单id. (Type: string)
+    - **data[].list[].orderStatus**: 订单状态. (Type: integer)
+    - **data[].list[].orderStatusTitle**: 订单状态主标题. (Type: string)
+    - **data[].list[].totalCount**: 商品总数. (Type: integer)
+    - **data[].list[].goods**: 订单商品. (Type: array)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success":true,"code":200,"message":"请求成功","datetime":"2026-10-09 18:17:29","traceId":"00000000000000000000000000000000","data":[{"hasNext":false,"lastId":0,"list":[]}]}

@@ -1,0 +1,66 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: No comments found. (Type: object)
+  - **data.orderId**: 订单编码 (Type: string)
+  - **data.orderStatus**: 订单状态 1待支付、2配餐中-已支付、4配送中、6已完成、7已取消、8已评价、10配餐中-餐厅确认配餐中 (Type: string)
+  - **data.status**: 订单状态 (Type: string)
+  - **data.storeName**: 门店名 (Type: string)
+  - **data.storeAddress**: 门店地址 (Type: string)
+  - **data.orderProductList**: 订单商品 (Type: array)
+    - **data.orderProductList[].productName**: 商品名称 (Type: string)
+    - **data.orderProductList[].productImage**: 商品图片 (Type: string)
+    - **data.orderProductList[].quantity**: 数量 (Type: integer)
+    - **data.orderProductList[].price**: 原价,单位元 (Type: string)
+    - **data.orderProductList[].comboItemList**: 子项列表 (Type: array)
+      - **data.orderProductList[].comboItemList[].itemName**: 子项或特调定制信息 (Type: string)
+      - **data.orderProductList[].comboItemList[].itemQuantity**: 数量 (Type: integer)
+  - **data.totalAmount**: 总金额 (Type: string)
+  - **data.realTotalAmount**: 实际支付金额 (Type: string)
+  - **data.totalDiscountAmount**: 总优惠金额 (Type: string)
+  - **data.couponList**: 优惠券列表 (Type: array)
+    - **data.couponList[].couponName**: 卡券名称 (Type: string)
+    - **data.couponList[].discountAmount**: 优惠金额 (Type: string)
+  - **data.deliveryInfo**: 配送信息 (Type: object)
+    - **data.deliveryInfo.deliveryType**: 配送方式label 2=预约送出 1=立即送出 (Type: string)
+    - **data.deliveryInfo.deliveryAddress**: 配送地址 (Type: string)
+    - **data.deliveryInfo.addressDetail**: 配送地址 (Type: string)
+    - **data.deliveryInfo.customerNickname**: 收件人姓名 (Type: string)
+    - **data.deliveryInfo.mobilePhone**: 收件人手机号 (Type: string)
+    - **data.deliveryInfo.expectDeliveryTime**: 预计送达时间 年月日时分秒 (Type: string)
+    - **data.deliveryInfo.riderNickName**: 配送骑士 (Type: string)
+    - **data.deliveryInfo.riderMobilePhone**: 配送骑士电话 (Type: string)
+  - **data.createTime**: 下单时间 (Type: string)
+  - **data.deliveryPrice**: 配送费 (Type: string)
+  - **data.realDeliveryPrice**: 实付配送费 (Type: string)
+  - **data.realPackingFeeTotalPrice**: 实际打包费总价,单位元 (Type: string)
+  - **data.tablewarePrice**: 餐具费,单位元 (Type: string)
+  - **data.productPrice**: 商品总价 (Type: string)
+  - **data.takeWay**: 取餐方式 (Type: string)
+  - **data.pickupCode**: 订单号（对应取餐码） (Type: string)
+  - **data.lockerCode**: 取餐柜密码 (Type: string)
+  - **data.lockerQrCode**: 取餐柜扫码二维码，按照这个格式进行输出![alt](lockerQrCode) (Type: string)
+  - **data.mealAssistance**: 团餐助餐服务 (Type: object)
+    - **data.mealAssistance.code**: 助餐服务编码 (Type: string)
+    - **data.mealAssistance.name**: 助餐服务名称 (Type: string)
+    - **data.mealAssistance.items**: 助餐服务项目 (Type: array)
+      - **data.mealAssistance.items[].name**: 助餐服务项目名称 (Type: string)
+  - **data.expirePayTime**: 过期支付时间 (Type: string)
+  - **data.payId**: payId (Type: string)
+  - **data.remark**: 订单备注 (Type: string)
+  - **data.needTableware**: 是否有餐具: true表示需要餐具，false表示不需要餐具 (Type: boolean)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+如果这个链接不为空，把lockerQrCode这个链接， 用![alt](lockerQrCode) 格式渲染
+{"success": true, "code": 200, "message": "请求成功", "datetime": "2026-10-09 18:31:31", "traceId": "00000000000000000000000000000000", "data": {"orderId": "1030000000000000000000000000", "orderStatus": "订单已完成", "status": "40", "storeName": "麦当劳示例一路餐厅", "storeAddress": "示例一路1号", "orderProductList": [{"productName": "人气超值四件套随心选", "productImage": "https://menu-img.mcd.cn/pcm/prod/menu/20260729/product/MS_9900004236_320.gif", "quantity": 1, "price": "52.5", "comboItemList": [{"itemName": "双层脆鸡堡", "itemQuantity": 1}, {"itemName": "中薯条", "itemQuantity": 1}, {"itemName": "麦乐鸡4块", "itemQuantity": 1}, {"itemName": "可乐中杯", "itemQuantity": 1}]}, {"productName": "薄皮焦香V翅", "productImage": "https://menu-img.mcd.cn/pcm/prod/menu/20241202/product/MS_520445_320.png", "quantity": 1, "price": "16", "comboItemList": []}, {"productName": "麦金卡月卡（30天）", "productImage": "https://menu-img.mcd.cn/pcm/prod/menu/20250423/product/MS_513817_320_1744684441670.png", "quantity": 1, "price": "19", "comboItemList": []}], "totalAmount": "87.5", "realTotalAmount": "63", "totalDiscountAmount": "24.5", "couponList": [{"couponName": "超值4件套", "discountAmount": "24.5"}], "createTime": "2026-07-30 16:04:51", "deliveryPrice": "0", "realDeliveryPrice": "0", "needTableware": false, "productPrice": "87.5", "takeWay": "堂食", "pickupCode": "12345", "expirePayTime": "2026-07-30 16:19:51", "payId": "100000000000000000000", "remark": ""}}

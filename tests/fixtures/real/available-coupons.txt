@@ -1,0 +1,38 @@
+### 麦麦省优惠券列表：
+- 优惠券标题：麦旋风任选 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="麦旋风任选" height="auto" width="300">
+- 优惠券标题：巧克力味厚松饼猪柳蛋套餐 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="巧克力味厚松饼猪柳蛋套餐" height="auto" width="300">
+- 优惠券标题：巧克力味厚松饼猪柳蛋套餐 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="巧克力味厚松饼猪柳蛋套餐" height="auto" width="300">
+- 优惠券标题：巧克力味厚松饼猪柳蛋套餐 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="巧克力味厚松饼猪柳蛋套餐" height="auto" width="300">
+- 优惠券标题：巧克力味厚松饼猪柳蛋套餐 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="巧克力味厚松饼猪柳蛋套餐" height="auto" width="300">
+- 优惠券标题：薯薯任选 \
+  状态：已领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="薯薯任选" height="auto" width="300">
+- 优惠券标题：免费脆薯饼 \
+  状态：可领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="免费脆薯饼" height="auto" width="300">
+- 优惠券标题：人气麦旋风买一送一 \
+  状态：可领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="人气麦旋风买一送一" height="auto" width="300">
+- 优惠券标题：9.9元中杯冰美式 \
+  状态：可领取 \
+  优惠券图片：\
+    <img src="https://img.example/coupon.png" alt="9.9元中杯冰美式" height="auto" width="300">
+

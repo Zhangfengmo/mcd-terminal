@@ -1,0 +1,11 @@
+## Response Structure 
+## 以下字段很重要，必须按照格式以及顺序展示，禁止模型丢弃
+| 字段 | 数据源 | 业务说明 | 是否必须展示 |
+- **地址ID**: data.addresses[].addressId, 地址唯一标识, 强制展示
+- **联系人**: data.addresses[].contactName, 收货联系人, 强制展示
+- **配送地址**: data.addresses[].fullAddress, 完整送货地址, 强制展示
+- **联系电话**: data.addresses[].phone, 联系电话, 强制展示
+## 输出格式
+|序号| 地址ID | 联系人 | 配送地址 | 联系电话 
+|:---:|:---:|:---:|:---:|:---:|:---:|
+|{序号}|{data.addresses[].addressId}|{data.addresses[].contactName}|{data.addresses[].fullAddress}|{data.addresses[].phone}|{"success":true,"code":200,"message":"请求成功","datetime":"2026-10-09 18:17:29","traceId":"00000000000000000000000000000000","data":{"addresses":[]}}

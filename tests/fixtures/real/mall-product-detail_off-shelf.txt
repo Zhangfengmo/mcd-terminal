@@ -1,0 +1,53 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **code**:  (Type: integer)
+- **data**: 商品详情信息 (Type: object)
+  - **data.detail**: 商品详情 (Type: string)
+  - **data.downTime**: 下架时间，商品可以兑换的截止时间 (Type: string)
+  - **data.images**: 商品图片列表 (Type: array)
+  - **data.images[]**: Items of type string
+  - **data.note**: 购买须知，纯展示文案。必须原文展示给用户，不得拆分、提取或改写为结构化形式；严禁从中提取任何数值用于下单校验、价格计算、库存判断等业务逻辑，所有校验以下单接口返回结果为准 (Type: string)
+  - **data.selling**: 商品卖点 (Type: string)
+  - **data.shopId**: 所属店铺ID (Type: integer)
+  - **data.spuId**: 商品ID (Type: integer)
+  - **data.spuName**: 商品名称 (Type: string)
+  - **data.upTime**: 上架时间，商品可以兑换的起始时间 (Type: string)
+  - **data.spuCategory**: 商品类别，1虚拟商品：2实体物品 (Type: string)
+  - **data.partyPeople**: 派对人数（主题活动相关），纯展示信息。包场模式有最低人数要求，拼团模式仅需不超上限。不得从中提取数值用于AI前置校验，所有人数校验以下单接口返回结果为准 (Type: string)
+  - **data.partyAge**: 派对年龄（主题活动相关） (Type: string)
+  - **data.partyRange**: 派对时长,半小时为单位（主题活动相关） (Type: integer)
+  - **data.partyType**: 派对的成团方式（主题活动相关，1：包场，2：拼团，-1：包场+拼团） (Type: integer)
+  - **data.spuLimit**: 限购信息，用于展示给用户参考。不得用于下单前的前置校验，所有校验以下单接口返回结果为准 (Type: object)
+    - **data.spuLimit.ruleType**: 限制规则类型（1：每人购买数量；2：指定人群购买） (Type: integer)
+    - **data.spuLimit.rule**: 具体的限制规则 (Type: string)
+    - **data.spuLimit.cycle**: 周期限购类型（1：天限购；7：周限购；30：月限购；999：终身限购） (Type: integer)
+    - **data.spuLimit.limitCount**: 商品的限购数量 (Type: integer)
+    - **data.spuLimit.baseCount**: 商品的起售数量 (Type: integer)
+    - **data.spuLimit.limitSingle**: 单次限购 (Type: integer)
+  - **data.skuList**: SKU规格列表，用户需选择具体SKU下单 (Type: array)
+    - **data.skuList[].skuId**: SKU ID，下单兑换时必传, 必须展示 (Type: integer)
+    - **data.skuList[].points**: 该SKU所需积分, 必须展示 (Type: string)
+    - **data.skuList[].extTradePrice**: 券核销额外支付金额, 必须展示 (Type: string)
+    - **data.skuList[].price**: 所需金额 (Type: string)
+    - **data.skuList[].specList**: 规格信息列表 (Type: array)
+      - **data.skuList[].specList[].specMain**: 规格名称（如"颜色"、"尺码"） (Type: string)
+      - **data.skuList[].specList[].specItem**: 规格值（如"红色"、"XL"） (Type: string)
+- **message**:  (Type: string)
+
+### SKU规格列表（用户需选择一个SKU进行兑换）
+| SKU ID | 所需积分 | 所需金额 | 额外支付金额 | 规格信息 |
+|--------|---------|---------|------------|----------|
+| {data.skuList[].skuId} | {data.skuList[].points} | {data.skuList[].price} | {data.skuList[].extTradePrice} | {data.skuList[].specList[].specMain}:{data.skuList[].specList[].specItem} |
+
+## Original Response
+
+{"success":false,"code":610403,"message":"商品已下架","datetime":"2026-10-09 18:31:30","traceId": "00000000000000000000000000000000"}

@@ -1,0 +1,27 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 服务器时间信息 (Type: object)
+  - **data.date**: 日期字符串 (yyyy-MM-dd) (Type: string)
+  - **data.datetime**: ISO格式日期时间 (Type: string)
+  - **data.day**: 日期 (1-31) (Type: integer)
+  - **data.dayOfWeek**: 星期几 (Type: string)
+  - **data.formatted**: 格式化时间字符串 (yyyy-MM-dd HH:mm:ss) (Type: string)
+  - **data.month**: 月份 (1-12) (Type: integer)
+  - **data.offset**: 时区偏移量 (Type: string)
+  - **data.timestamp**: 毫秒级时间戳 (Type: integer)
+  - **data.timezone**: 时区ID (Type: string)
+  - **data.utc**: UTC时间 (Type: string)
+  - **data.year**: 年份 (Type: integer)
+
+## Original Response
+
+{"success":true,"code":200,"message":"请求成功","datetime":"2026-10-09 18:17:27","traceId":"00000000000000000000000000000000","data":{"timestamp":1791541047465,"datetime":"2026-10-09T18:17:27.465","formatted":"2026-10-09 18:17:27","date":"2026-10-09","year":2026,"month":10,"day":9,"dayOfWeek":"FRIDAY","timezone":"GMT+08:00","offset":"+08:00","utc":"2026-10-09T10:17:27.465Z"}}

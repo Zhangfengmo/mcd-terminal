@@ -1,0 +1,33 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: No comments found. (Type: object)
+  - **data.list**: 订单列表 (Type: array)
+    - **data.list[].orderId**: 订单编码 (Type: string)
+    - **data.list[].orderType**: 订单类型 (Type: string)
+    - **data.list[].createTime**: 下单时间 (Type: string)
+    - **data.list[].beType**: 门店类型 (Type: string)
+    - **data.list[].beCode**: BE编码 (Type: string)
+    - **data.list[].storeCode**: 门店编码 (Type: string)
+    - **data.list[].storeName**: 门店名称 (Type: string)
+    - **data.list[].orderStatus**: 订单状态 (Type: string)
+    - **data.list[].orderProductList**: 商品 (Type: array)
+      - **data.list[].orderProductList[].productCode**: 商品code (Type: string)
+      - **data.list[].orderProductList[].productName**: 商品名称 (Type: string)
+      - **data.list[].orderProductList[].quantity**: 商品数量 (Type: integer)
+      - **data.list[].orderProductList[].comboItemList**: 子项列表 (Type: array)
+    - **data.list[].realTotalAmount**: 总金额 (Type: string)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "2026-10-09 18:31:31", "traceId": "00000000000000000000000000000000", "data": {"list": [{"orderId": "1030000000000000000000000000", "orderType": "1", "createTime": "2026-07-30 16:04:51", "beType": "1", "beCode": "", "storeCode": "9900001", "storeName": "麦当劳示例一路餐厅", "orderStatus": "订单已完成", "orderProductList": [{"productCode": "9900004236", "productName": "人气超值四件套随心选", "quantity": 1, "comboItemList": [{"productCode": "515295", "name": "双层脆鸡堡", "quantity": 1}, {"productCode": "4810", "name": "中薯条", "quantity": 1}, {"productCode": "515106", "name": "麦乐鸡4块", "quantity": 1}, {"productCode": "3050", "name": "可乐中杯", "quantity": 1}]}, {"productCode": "520445", "productName": "薄皮焦香V翅", "quantity": 1, "comboItemList": []}], "realTotalAmount": "63"}, {"orderId": "1030000000000000000000000001", "orderType": "1", "createTime": "2026-07-22 17:55:33", "beType": "1", "beCode": "", "storeCode": "9900001", "storeName": "麦当劳示例一路餐厅", "orderStatus": "订单已完成", "orderProductList": [{"productCode": "9900005424", "productName": "脆汁鸡中套餐", "quantity": 1, "comboItemList": [{"productCode": "505416", "name": "麦麦脆汁鸡-琵琶腿", "quantity": 1}, {"productCode": "507165", "name": "麦麦脆汁鸡-带骨里脊", "quantity": 1}, {"productCode": "4810", "name": "中薯条", "quantity": 1}, {"productCode": "3050", "name": "可乐中杯", "quantity": 1}]}], "realTotalAmount": "38"}]}}
