@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcd-terminal"
-version = "0.4.2"
+version = "0.5.0"
 description = "麦麦交易终端：帮你点麦当劳最省的 Skill 与命令行引擎，自动叠加优惠券、积分和门店活动并实时核价（基于麦当劳中国 MCP）"
 readme = "README.md"
 requires-python = ">=3.9"
