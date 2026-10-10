@@ -64,7 +64,8 @@ _STORES = [
 
 class DemoClient:
     def __init__(self, today: date | None = None) -> None:
-        self.today = today or date.today()
+        fixed = os.environ.get("MCD_DEMO_NOW", "")[:10]
+        self.today = today or (date.fromisoformat(fixed) if fixed else date.today())
         self.available = 1880
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self._orders = 0
@@ -164,9 +165,10 @@ class DemoClient:
     def _party_detail(self, spu: int) -> dict[str, Any]:
         name, price, ptype = {701: ("生日派对（演示数据）", "58", -1), 702: ("小小厨师体验营（演示数据）", "72", 2)}[spu]
         return {"spuName": name, "spuId": spu, "images": [], "shopId": 5, "partyType": ptype,
-                "partyPeople": "6-20", "partyAge": "4-12", "partyRange": 3,
+                "partyPeople": "6-12", "partyAge": "4-12", "partyRange": 3,
+                "note": "<p>1. 派对预约：请提前3天预订</p><p>2. 拼团未在截止前凑够人数将自动取消并退款</p>",
                 "spuLimit": {"ruleType": 1, "rule": "", "cycle": 0, "limitCount": -1, "baseCount": 1, "limitSingle": 29},
-                "note": "活动开始前 24 小时可免费取消（演示）", "detail": "",
+                "detail": "",
                 "skuList": [{"skuId": 20000 + spu, "points": "0", "price": price, "specList": []}], "spuCategory": "1"}
 
     def _mall_product_detail(self, spuId: int) -> dict[str, Any]:
@@ -437,11 +439,16 @@ class DemoClient:
                  "distance": 2300, "distanceText": "2.3km", "cityName": "上海市", "businessStatus": 1}]
 
     def _query_party_store_date(self, storeCode: str, spuId: int) -> list:
-        return [{"date": f"{self.today + timedelta(days=k):%Y-%m-%d}", "spuId": spuId, "storeCode": storeCode} for k in (2, 3, 9)]
+        # like the live server: bookable from 3 days ahead (the 提前 3 天预订 rule)
+        return [{"date": f"{self.today + timedelta(days=k):%Y-%m-%d}", "spuId": spuId, "storeCode": storeCode} for k in (3, 4, 10)]
 
     def _query_party_store_session(self, storeCode: str, spuId: int, dateStr: str) -> list:
-        return [{"id": 1, "timeStart": "10:30", "timeEnd": "12:00", "leftNum": 8, "partyMin": 6, "partyMax": 20, "price": 5800},
-                {"id": 2, "timeStart": "14:30", "timeEnd": "16:00", "leftNum": 0, "partyMin": 6, "partyMax": 20, "price": 5800}]
+        k = (date.fromisoformat(dateStr) - self.today).days
+        joined = {3: 3, 4: 0, 10: 5}.get(k, 0)        # how many already signed up for the morning session
+        base = int(spuId) * 100 + k * 10
+        return [{"id": base + 1, "timeStart": "10:30", "timeEnd": "12:00", "leftNum": 12 - joined, "partyMin": 6, "partyMax": 12,
+                 "price": 5800},
+                {"id": base + 2, "timeStart": "14:30", "timeEnd": "16:00", "leftNum": 0, "partyMin": 6, "partyMax": 12, "price": 5800}]
 
     def _party_order_create(self, partyType: int, spuId: int = 0, skuId: int = 0, code: str = "", storeCode: str = "",
                             dateStr: str = "", id: Any = None, timeStart: str = "", timeEnd: str = "", leftNum: int = 0,

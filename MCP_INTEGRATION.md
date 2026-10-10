@@ -41,7 +41,7 @@
 | 问卷奖券 | `query-survey-coupon` | `mcd survey`：吃完填的满意度问卷送了什么券、有效期、是否已核销、适用到店还是外送；网页版订单页的已完成订单下方 |
 | 取消订单 | `cancel-order` | `mcd cancel`：确认后取消，可选取消原因 |
 | 派对场次 | `query-party-city` / `query-party-store` / `query-party-store-date` / `query-party-store-session` | `mcd party`、网页版活动地图里的派对卡片：哪个城市、哪家店、哪天几点还能约 |
-| 派对预约 | `party-order-create` | `mcd party <名字> --book`：按 城市 → 门店 → 日期 → 场次 → 包场/拼团 → 人数 一步步选（商品详情 `partyType` 为 1/2 时只能包场/拼团，-1 时让用户选；人数下限取场次 `partyMin` 和 `spuLimit.baseCount`；场次 `price` 是每人价格，单位分），确认后下单、扫码付款；网页版场次旁的“预约” |
+| 派对预约 | `party-order-create` | `mcd party <名字> --book`：按 城市 → 门店 → 日期 → 场次 → 包场/拼团 → 人数 一步步选（商品详情 `partyType` 为 1/2 时只能包场/拼团，-1 时让用户选；人数下限取场次 `partyMin` 和 `spuLimit.baseCount`；场次 `price` 是每人价格，单位分）。拼团截止前凑不够最少人数会自动取消退款、需提前 N 天预订（从商品须知解析），所以按 `partyMax - leftNum` 推算已报人数、按“提前 N 天”推算拉人截止，结合 `--people` 给每场打分推荐最稳的；订完给出拉人文案和截止前提醒。确认后下单、扫码付款；网页版场次旁的“预约” |
 | 积分抽奖 | `query-lottery-info` / `query-my-prizes` | `mcd prizes`、网页版活动页的奖池和“我的奖品” |
 | 抽奖 | `draw-lottery` | `mcd draw`：先展示 `drawDecision.nextConsumption`（本次扣多少次数或积分，有 `fallbackConsumption` 时一并说明），`resourceEligible` 为 false 时不调用；用户确认后只抽一次，不试抽、不连抽；失败时原样展示服务端的提示。网页版奖池弹窗的“抽一次” |
 

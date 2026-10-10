@@ -437,6 +437,37 @@ dialog::backdrop { background: rgba(34, 28, 53, .5); }
 .book-grid > span { color: var(--muted, #6b6880); font-size: 14px; }
 .survey { margin-top: 14px; border: 2px dashed var(--ink); border-radius: var(--r-m); padding: 10px 12px; background: #fffaf0; }
 .survey b { display: block; }
+.party-rules { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; background: #fff4d6; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px 12px; margin: 8px 0; }
+.party-people { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0; }
+.sessions { display: grid; gap: 8px; }
+.session { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; grid-template-areas: "when verdict acts" "fill fill fill";
+  gap: 6px 14px; align-items: center; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px 12px; background: #fff; }
+.session > * { min-width: 0; }
+.session .when { grid-area: when; } .session .verdict { grid-area: verdict; } .session .acts { grid-area: acts; display: flex; gap: 6px; }
+.session .fill { grid-area: fill; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.session.best { box-shadow: 4px 4px 0 var(--pickle); border-color: var(--pickle); }
+.session.full { opacity: .55; grid-template-areas: "when verdict acts"; }
+.session.full .fill { display: none; }
+.session small { display: block; font-size: 12px; }
+.session .fill small { display: inline; }
+.session .urgent { color: var(--ketchup); font-weight: 700; }
+.session .verdict b { font-size: 13px; display: block; }
+.session .ok { color: var(--pickle); }
+.session .warnv { color: #b4560f; }
+@media (max-width: 560px) { .session { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when acts" "verdict verdict" "fill fill"; } }
+.pmeter { position: relative; display: flex; width: 100%; max-width: 180px; height: 10px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; overflow: hidden; }
+.pmeter i { display: block; height: 100%; }
+.pmeter i.gap { background: repeating-linear-gradient(135deg, #ffd2c7 0 4px, #fff 4px 8px); }
+.pmeter b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); }
+.risk { border-radius: var(--r-m); padding: 8px 12px; margin: 6px 0; font-size: 14px; border: 2px solid currentColor; }
+.risk.bad { color: #a8430f; background: #fff1e8; }
+.risk.ok { color: var(--pickle); background: #e9f8f1; }
+.linkish { border: 0; background: none; padding: 0; margin-top: 4px; color: var(--grape); text-decoration: underline; font-weight: 700; cursor: pointer; }
+.invite { display: grid; gap: 6px; margin: 10px 0; }
+.invite small { color: var(--ketchup); }
+.invite textarea { width: 100%; font: inherit; font-size: 13px; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px; resize: vertical; }
+.invite .btn { justify-self: start; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
 .warn { color: var(--ketchup); font-size: 14px; font-weight: 600; }
 .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 18px; border-radius: 99px; z-index: 50; font-size: 14px; font-weight: 600; max-width: calc(100vw - 32px); }
 footer { text-align: center; color: var(--ink-3); font-size: 13px; padding: 0 var(--gutter) 40px; }
@@ -888,9 +919,34 @@ async function doDraw() {
     (dlg) => { const b = dlg.querySelector("[data-mine]"); if (b) b.addEventListener("click", () => { closeDialog(); go("assets"); }); });
 }
 
+/* ---- party: pick the session least likely to fall through ("凑不齐人") ---- */
+const countdownText = (h) => (h <= 0 ? "已截止" : h < 1 ? "不到 1 小时" : h < 48 ? `还剩 ${Math.floor(h)} 小时` : `还剩 ${Math.floor(h / 24)} 天`);
+function partyFit(x, kind, n) {
+  const j = x.joined || 0, lo = x.min || 1, left = x.left ?? 99, hi = x.max ?? 99;
+  const need = kind === "包场" ? Math.max(0, lo - n) : Math.max(0, lo - j - n);
+  const fits = kind === "包场" ? n <= hi : n <= left;
+  const expired = (x.hours_left ?? 1) <= 0;
+  const verdict = expired ? "已过预约截止" : !fits ? (kind === "拼团" ? `位置不够（只剩 ${left}）` : `人太多（最多 ${hi} 人）`)
+    : kind === "包场" ? (need ? `包场至少 ${lo} 人，还差 ${need} 人` : "人够了，整场是你们的")
+    : need ? `加上你们还差 ${need} 人成团` : j >= lo ? "已成团，直接加入" : "加上你们就成团";
+  return { kind, need, fits, expired, safe: !need && fits && !expired, verdict };
+}
+// 人够时包场最稳（不靠别人）；人不够时拼团更有希望（别的家庭也会来报）
+const fitOrder = (a, b) => (a.safe === b.safe ? 0 : a.safe ? -1 : 1) || a.need - b.need
+  || (a.kind === b.kind ? 0 : (a.kind === (a.safe ? "包场" : "拼团")) ? -1 : 1);
+function bestFit(x, kinds, n) {
+  return kinds.map((k) => partyFit(x, k, n)).filter((f) => f.fits && !f.expired).sort(fitOrder)[0] || null;
+}
+function partyMeter(x, n, kind) {
+  const max = Math.max(x.max || 12, 1), j = kind === "包场" ? 0 : Math.min(x.joined || 0, max), you = Math.min(n, max - j);
+  const need = Math.max(0, (x.min || 1) - j - you);
+  const pct = (v) => `${(v / max) * 100}%`;
+  return `<span class="pmeter" aria-hidden="true"><i style="width:${pct(j)};background:var(--grape)"></i><i style="width:${pct(you)};background:var(--pickle)"></i><i class="gap" style="width:${pct(need)}"></i><b style="left:${pct(x.min || 1)}"></b></span>`;
+}
+
 async function loadSessions(e, city) {
   const box = document.getElementById("sessions"); if (!box) return;
-  const d = await run(["party", String(e.spu_id), ...(city ? ["-c", city] : [])]);
+  const d = await run(["party", String(e.spu_id), ...(city ? ["-c", city] : []), "--dates", "5"]);
   if (!document.getElementById("sessions")) return;
   if (d.status === "choose_city" && (d.cities || []).length) {
     box.innerHTML = `<p class="muted" style="font-size:13px">在哪个城市？</p><div class="map-filters">${d.cities.slice(0, 16).map((c) => `<button data-city="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
@@ -898,58 +954,101 @@ async function loadSessions(e, city) {
     return;
   }
   if (!d.ok) { box.innerHTML = `<p class="warn">${esc(d.error)}</p>`; return; }
+  const rules = d.rules || { advance_days: 3, types: ["包场", "拼团"] };
+  const kinds = rules.types || ["包场", "拼团"];
   const rows = (d.days || []).flatMap((day) => (day.sessions || []).map((x) => ({ ...x, date: day.date })));
-  box.innerHTML = `<p style="margin:12px 0 6px"><b>${esc(d.store.name)}</b> <span class="muted" style="font-size:13px">${esc(d.store.distance || "")} · ${esc(d.city || "")}</span></p>
-    ${rows.length ? `<div style="display:grid;gap:6px">${rows.map((x, i) => `<div class="extra" style="padding:6px 10px">
-      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 位" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}/人</span>` : ""}</p>
-      ${x.left > 0 ? `<button class="btn ghost" data-rs="${i}">⏰ 提醒我</button><button class="btn gold" data-book="${i}">预约</button>` : ""}</div>`).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
-    <p class="muted" style="font-size:13px">选好场次就能直接预约，下单后扫码付款；每一步都会先让你确认。</p>`;
-  box.querySelectorAll("[data-book]").forEach((b) => b.addEventListener("click", () => bookParty(e, d, rows[Number(b.dataset.book)])));
-  box.querySelectorAll("[data-rs]").forEach((b) => b.addEventListener("click", () => {
-    const x = rows[Number(b.dataset.rs)];
-    remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒");
-  }));
+  const draw = () => {
+    const n = state.partyPeople || 4;
+    const open = rows.map((x, i) => ({ x, i, f: x.left > 0 ? bestFit(x, kinds, n) : null })).filter((r) => r.f);
+    open.sort((a, b) => fitOrder(a.f, b.f) || (b.x.joined || 0) - (a.x.joined || 0) || String(a.x.date).localeCompare(String(b.x.date)));
+    const best = open.length && open[0].f.safe ? open[0].i : -1;
+    box.innerHTML = `<p style="margin:12px 0 6px"><b>${esc(d.store.name)}</b> <span class="muted" style="font-size:13px">${esc(d.store.distance || "")} · ${esc(d.city || "")} · ${esc(kinds.join(" / "))}</span></p>
+      <div class="party-rules">${kinds.includes("拼团") ? `<span>⚠ 拼团截止前凑不够最少人数，<b>自动取消并退款</b></span>` : ""}<span>⏳ 需提前 <b>${rules.advance_days}</b> 天预订</span></div>
+      <div class="party-people"><span>我们大概几个人？</span><div class="stepper"><button data-pp="-1" aria-label="少一人">−</button><b class="num">${n}</b><button data-pp="1" aria-label="多一人">+</button></div>
+        <span class="muted" style="font-size:13px">按人数帮你挑最不怕凑不齐的一场</span></div>
+      ${rows.length ? `<div class="sessions">${rows.map((x, i) => {
+        const f = x.left > 0 ? bestFit(x, kinds, n) : null, urgent = x.hours_left > 0 && x.hours_left < 24;
+        return `<div class="session ${i === best ? "best" : ""} ${x.left > 0 ? "" : "full"}">
+          <div class="when"><b class="num">${esc(x.date.slice(5))} ${esc(x.start)}–${esc(x.end)}</b>${i === best ? ` <span class="chip save">最稳</span>` : ""}
+            <small class="${urgent ? "urgent" : "muted"}">拉人截止 ${esc(String(x.deadline || "").slice(5, 10))} · ${countdownText(x.hours_left ?? 99)}</small></div>
+          <div class="fill">${x.left > 0 ? `${partyMeter(x, n, f ? f.kind : "拼团")}<small>已报 ${x.joined || 0} · 至少 ${x.min} · 最多 ${x.max}</small>` : `<small class="muted">已约满</small>`}</div>
+          <div class="verdict">${f ? `<b class="${f.safe ? "ok" : "warnv"}">${esc(f.kind)}：${esc(f.verdict)}</b>` : ""}${x.price_yuan != null ? `<small class="muted">¥${x.price_yuan}/人</small>` : ""}</div>
+          ${x.left > 0 ? `<div class="acts"><button class="btn ghost" data-rs="${i}">⏰</button><button class="btn ${i === best ? "gold" : "ghost"}" data-book="${i}">预约</button></div>` : ""}
+        </div>`;
+      }).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
+      <p class="muted" style="font-size:12px">已报人数按“最多人数 − 剩余位置”推算，截止时间按“提前 ${rules.advance_days} 天预订”推算，都以 App 为准。</p>`;
+    box.querySelectorAll("[data-pp]").forEach((b) => b.addEventListener("click", () => { state.partyPeople = Math.min(30, Math.max(1, n + Number(b.dataset.pp))); draw(); }));
+    box.querySelectorAll("[data-book]").forEach((b) => b.addEventListener("click", () => bookParty(e, d, rows[Number(b.dataset.book)], kinds, n)));
+    box.querySelectorAll("[data-rs]").forEach((b) => b.addEventListener("click", () => {
+      const x = rows[Number(b.dataset.rs)];
+      remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒");
+    }));
+  };
+  draw();
 }
 
-async function bookParty(e, d, x) {
+async function bookParty(e, d, x, kinds, people) {
   const base = ["party", String(e.spu_id), "-c", d.city || "", "--book", "--date", x.date, "--time", String(x.start).slice(0, 5)];
   setDialog(`<h3>预约 ${esc(e.name)}</h3>${loader("确认场次…", "", true)}`);
-  const first = await run(base);
-  if (!first.ok) { setDialog(`<h3>约不了</h3><p class="err">${esc(first.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return; }
-  const fixed = first.status === "needs_confirmation" ? (first.booking || {}).type : null;
+  const first = await run([...base, "--count", String(people)]);
+  if (!first.ok && !/人数不对/.test(first.error || "")) {
+    setDialog(`<h3>约不了</h3><p class="err">${esc(first.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return;
+  }
   const bk = first.booking || {};
-  const lo = bk.min || x.min || 1, hi = bk.max || x.max || 99;
-  let kind = fixed || "包场", n = bk.count || (kind === "包场" ? lo : 1);
+  const base5 = Math.max(1, bk.min && bk.type === "包场" ? bk.min : 1);
+  let kind = (bestFit(x, kinds, people) || { kind: kinds[0] }).kind, n = people;
   const each = x.price_yuan;   // 每人价格
-  const draw = () => setDialog(`<h3>预约 ${esc(e.name)}</h3>
-    <p class="muted">${esc(d.city || "")} ${esc(d.store.name)}</p>
-    <div class="book-grid">
-      <span>场次</span><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b>
-      <span>方式</span>${fixed ? `<b>${esc(fixed)}</b>` : `<div class="seg" role="group">${["包场", "拼团"].map((k) => `<button data-kind="${k}" aria-pressed="${k === kind}">${k}</button>`).join("")}</div>`}
-      <span>人数</span><div class="stepper"><button data-n="-1" aria-label="少一人">−</button><b class="num">${n}</b><button data-n="1" aria-label="多一人">+</button></div>
-      <span>价格</span><b class="num">${each != null ? `约 ${yuan(each * n)} <small class="muted" style="font-weight:400">（¥${each}/人 × ${n}）</small>` : "以下单页为准"}</b>
-    </div>
-    <p class="muted" style="font-size:13px">${kind === "包场" ? "包场：整场只有你们，" + lo + "–" + hi + " 人" : "拼团：和其他家庭一起，这一场还剩 " + x.left + " 个位置"}。下单后扫码付款，退改以活动规则为准。</p>
-    <div class="actions"><button class="btn ghost" data-close>先不约</button><button class="btn gold" data-yes>确认预约</button></div>`,
-    (dlg) => {
-      dlg.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => { kind = b.dataset.kind; n = kind === "包场" ? Math.max(n, x.min || lo) : Math.min(n, x.left || n); draw(); }));
-      dlg.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => {
-        const max = kind === "拼团" ? Math.min(hi, x.left || hi) : hi;
-        n = Math.min(max, Math.max(kind === "包场" ? lo : 1, n + Number(b.dataset.n))); draw();
-      }));
-      dlg.querySelector("[data-yes]").addEventListener("click", async () => {
-        setDialog(`<h3>正在预约…</h3>${loader("向门店锁定场次、创建订单", "请不要关闭页面", true)}`);
-        const r = await run([...base, "--type", kind, "--count", String(n), "-y"]);
-        if (!r.ok || r.status !== "booked") {
-          setDialog(`<h3>没有约上</h3><p class="err">${esc(r.error || "请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return;
-        }
-        const o = r.order || {};
-        setDialog(`${await payBody("预约成功，扫码付款", o.order_id, o.pay_yuan, o.pay_url)}
-          <div class="actions"><button class="btn ghost" data-close>关闭</button><button class="btn gold" data-rem>⏰ 那天提醒我</button></div>`,
-          (dlg2) => dlg2.querySelector("[data-rem]").addEventListener("click", () =>
-            remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒")));
+  const draw = () => {
+    const f = partyFit(x, kind, n);
+    const lo = kind === "包场" ? Math.max(x.min || 1, base5) : 1, hi = kind === "拼团" ? Math.min(x.max || 99, x.left || 99) : (x.max || 99);
+    const other = kinds.length > 1 ? partyFit(x, kind === "包场" ? "拼团" : "包场", n) : null;
+    const risk = f.safe ? `<div class="risk ok">${kind === "包场" ? "整场只有你们，不用等别人凑团" : `加上你们已经够 ${x.min} 人，能成团`}</div>`
+      : `<div class="risk bad">⚠ ${esc(f.verdict)}${kind === "拼团" && f.need ? `：${esc(String(x.deadline).slice(5))} 前凑不齐会<b>自动取消并退款</b>（${countdownText(x.hours_left)}）` : ""}
+          ${other && other.safe ? `<br><button class="linkish" data-switch>改成${esc(other.kind)}：${esc(other.verdict)}</button>` : ""}</div>`;
+    setDialog(`<h3>预约 ${esc(e.name)}</h3>
+      <p class="muted">${esc(d.city || "")} ${esc(d.store.name)}</p>
+      <div class="book-grid">
+        <span>场次</span><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b>
+        <span>方式</span>${kinds.length < 2 ? `<b>${esc(kind)}</b>` : `<div class="seg" role="group">${kinds.map((k) => `<button data-kind="${k}" aria-pressed="${k === kind}">${k}</button>`).join("")}</div>`}
+        <span>人数</span><div class="stepper"><button data-n="-1" aria-label="少一人">−</button><b class="num">${n}</b><button data-n="1" aria-label="多一人">+</button></div>
+        <span>报名</span><div>${partyMeter(x, n, kind)}<small class="muted" style="display:block">${kind === "拼团" ? `已报 ${x.joined || 0} + 你们 ${n} / 至少 ${x.min}` : `你们 ${n} / 至少 ${lo}`}</small></div>
+        <span>价格</span><b class="num">${each != null ? `约 ${yuan(each * n)} <small class="muted" style="font-weight:400">（¥${each}/人 × ${n}）</small>` : "以下单页为准"}</b>
+      </div>
+      ${risk}
+      <p class="muted" style="font-size:13px">下单后扫码付款，退改以活动规则为准。</p>
+      <div class="actions"><button class="btn ghost" data-close>先不约</button><button class="btn gold" data-yes ${n < lo || n > hi || !f.fits ? "disabled" : ""}>${kind === "拼团" && f.need ? "预约，我去拉人" : "确认预约"}</button></div>`,
+      (dlg) => {
+        dlg.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => { kind = b.dataset.kind; draw(); }));
+        const sw = dlg.querySelector("[data-switch]"); if (sw) sw.addEventListener("click", () => { kind = other.kind; draw(); });
+        dlg.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => { n = Math.min(hi, Math.max(lo, n + Number(b.dataset.n))); draw(); }));
+        dlg.querySelector("[data-yes]").addEventListener("click", () => submit(f));
       });
-    });
+  };
+  const submit = async (f) => {
+    setDialog(`<h3>正在预约…</h3>${loader("向门店锁定场次、创建订单", "请不要关闭页面", true)}`);
+    const r = await run([...base, "--type", kind, "--count", String(n), "-y"]);
+    if (!r.ok || r.status !== "booked") {
+      setDialog(`<h3>没有约上</h3><p class="err">${esc(r.error || "请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return;
+    }
+    const o = r.order || {};
+    const cut = (r.reminders || []).find((c) => c.includes("拉人截止"));
+    const m = cut ? cut.match(/--date (\S+) --at (\S+)/) : null;
+    setDialog(`${await payBody("预约成功，扫码付款", o.order_id, o.pay_yuan, o.pay_url)}
+      ${r.invite_text ? `<div class="invite"><b>拉人文案</b>${f.need ? `<small>还差 ${f.need} 人成团，发到亲友群吧</small>` : ""}<textarea readonly rows="4">${esc(r.invite_text)}</textarea>
+        <button class="btn ghost" data-copy>复制文案</button></div>` : ""}
+      <div class="actions"><button class="btn ghost" data-close>关闭</button>${m ? `<button class="btn ghost" data-cut>⏰ 截止前提醒我看人齐没</button>` : ""}<button class="btn gold" data-rem>⏰ 那天提醒我</button></div>`,
+      (dlg2) => {
+        dlg2.querySelector("[data-rem]").addEventListener("click", () =>
+          remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒"));
+        const c = dlg2.querySelector("[data-cut]");
+        if (c) c.addEventListener("click", () => remindMe(["party", "-t", `拉人截止：${e.name}`, "--date", m[1], "--at", m[2]], "拉人截止提醒"));
+        const cp = dlg2.querySelector("[data-copy]");
+        if (cp) cp.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(r.invite_text); toast("文案已复制，发到亲友群吧"); }
+          catch (err) { dlg2.querySelector("textarea").select(); toast("按 ⌘C / Ctrl+C 复制"); }
+        });
+      });
+  };
   draw();
 }
 
@@ -1010,6 +1109,7 @@ async function renderCampaigns() {
   if (w && lot) { w.addEventListener("click", () => lotteryDialog(lot)); w.addEventListener("keydown", (e) => { if (e.key === "Enter") lotteryDialog(lot); }); }
   m.querySelectorAll("[data-event]").forEach((b) => b.addEventListener("click", () => {
     const e = events[Number(b.dataset.event)];
+    $("#dlg").classList.add("wide");
     openDialog(`${e.image ? `<img class="camp-art" src="${esc(imgSrc(e.image))}" alt="" onerror="this.remove()">` : ""}<h3>${esc(e.name)}</h3>
       <div class="camp-meta"><span class="chip">${esc(e.category || "")}</span>${e.price_yuan != null ? `<span class="chip gold">¥${e.price_yuan}</span>` : ""}${e.until ? `<span class="camp-when">报名到 ${esc(e.until)}</span>` : ""}</div>
       <div class="camp-detail">${esc(e.intro || "")}</div>

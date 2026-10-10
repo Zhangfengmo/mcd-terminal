@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date, timedelta
 import subprocess
 import sys
 import tempfile
@@ -27,6 +28,7 @@ COMMANDS = [
     "logout", "skill", "skill show", "skill install",
 ]
 
+DEMO_DAY = date(2026, 10, 9)   # demo mode runs on a fixed "today" (MCD_DEMO_NOW)
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 YES = "y\n" * 12   # answer "yes" to every prompt
 NO = "n\n" * 12    # decline every prompt
@@ -36,6 +38,7 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     """(name, args, stdin, expectations): json=True, status=..., contains=[...], lacks=[...]."""
     s: list[tuple[str, list[str], str | None, dict]] = []
     add = lambda name, args, stdin=None, **exp: s.append((name, args, stdin, exp))  # noqa: E731
+    d3 = (DEMO_DAY + timedelta(days=3)).isoformat()     # demo parties are bookable 3 / 4 / 10 days ahead
 
     add("version", ["--version"], contains=["mcd-terminal"])
     add("help", ["--help"], contains=["order"])
@@ -68,24 +71,24 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("prizes --json", ["--demo", "--json", "prizes"], json=True)
     add("events", ["--demo", "events"], contains=["生日派对"])
     add("events --json", ["--demo", "--json", "events"], json=True)
-    add("party sessions", ["--demo", "party", "生日派对", "-c", "上海"], contains=["余 8", "--book"])
+    add("party sessions", ["--demo", "party", "生日派对", "-c", "上海"], contains=["已报", "拉人截止", "自动取消并退款", "--people"])
     add("party --json", ["--demo", "--json", "party", "生日派对", "-c", "上海"], json=True, status="listed")
     add("party book: choose session (agent)", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book"],
         json=True, status="choose_session")
-    add("party book: choose type (agent)", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+    add("party book: choose type (agent)", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", d3,
                                             "--time", "10:30"], json=True, status="choose_type")
-    add("party book: needs confirmation", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+    add("party book: needs confirmation", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", d3,
                                            "--time", "10:30", "--type", "包场", "--count", "8"], json=True, status="needs_confirmation")
     add("party book: -y books and returns a pay link", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date",
-                                                        "2026-10-12", "--time", "10:30", "--type", "包场", "--count", "8", "-y"],
+                                                        d3, "--time", "10:30", "--type", "包场", "--count", "8", "-y"],
         json=True, status="booked", contains=["scanToPay"])
-    add("party book: fixed type is enforced", ["--demo", "--json", "party", "体验营", "-c", "上海", "--book", "--date", "2026-10-12",
+    add("party book: fixed type is enforced", ["--demo", "--json", "party", "体验营", "-c", "上海", "--book", "--date", d3,
                                                "--type", "包场"], exit_code=1, contains=["只能拼团"])
-    add("party book: too many people", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+    add("party book: too many people", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", d3,
                                         "--time", "10:30", "--type", "包场", "--count", "30", "-y"], exit_code=1, contains=["人数不对"])
     add("party book interactive: pick session, type, confirm", ["--demo", "party", "生日派对", "-c", "上海", "--book"], "1\n1\n1\n",
         contains=["party-order-create", "待支付"])
-    add("party book interactive: decline", ["--demo", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+    add("party book interactive: decline", ["--demo", "party", "生日派对", "-c", "上海", "--book", "--date", d3,
                                             "--type", "包场"], NO, lacks=["party-order-create"])
     add("draw: agent must confirm first", ["--demo", "--json", "draw"], json=True, status="needs_confirmation",
         contains=["本次消耗 100 积分"])
@@ -96,13 +99,25 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("survey --json", ["--demo", "--json", "survey"], json=True, contains=["满意度问卷专享"])
     add("survey: order without a survey", ["--demo", "--json", "survey", "1030938700000000000000000001"], json=True,
         contains=['"surveys": []'])
+    add("party --people recommends the safest session", ["--demo", "party", "生日派对", "-c", "上海", "--people", "4"],
+        contains=["最稳的是", "加上你们就成团"])
+    add("party --people --json", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--people", "4"], json=True,
+        status="listed", contains=["recommended", "need_more", "hours_left"])
+    add("party --by too soon", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--by", (DEMO_DAY + timedelta(days=1)).isoformat()],
+        exit_code=1, contains=["too_late", "来不及"])
+    add("party book 拼团 short of people warns and drafts an invite",
+        ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", d3, "--time", "10:30", "--type", "拼团",
+         "--count", "2", "-y"], json=True, status="booked", contains=['"need_more": 1', "invite_text", "还差 1 位小朋友"])
+    add("party book 拼团 risk shown before confirming", ["--demo", "party", "生日派对", "-c", "上海", "--book", "--date", d3,
+                                                         "--type", "拼团", "--count", "2"], NO,
+        contains=["自动取消并退款", "还差 1 人成团"], lacks=["party-order-create"])
     add("party needs a city", ["--demo", "--json", "party", "生日派对", "-c", "火星"], exit_code=1, contains=["choose_city"])
     add("remind coupons --json needs confirmation", ["--demo", "--json", "remind", "coupons"], json=True,
         status="needs_confirmation")
     add("remind coupons (demo writes a calendar file)", ["--demo", "remind", "coupons", "-y"], contains=[".ics"])
     add("remind points", ["--demo", "--json", "remind", "points", "-y"], json=True, status="done")
     add("remind campaign", ["--demo", "--json", "remind", "campaign", "-t", "甜品", "-y"], json=True, status="done")
-    add("remind party", ["--demo", "--json", "remind", "party", "-t", "生日派对", "--date", "2026-10-12", "--at", "10:30", "-y"],
+    add("remind party", ["--demo", "--json", "remind", "party", "-t", "生日派对", "--date", d3, "--at", "10:30", "-y"],
         json=True, status="done")
     add("web (self-test: page, API, QR, image proxy, security)", ["--demo", "web", "--self-test"],
         contains=["web self-test passed"])
@@ -212,7 +227,7 @@ def run(cmd: list[str]) -> int:
     failures: list[str] = []
     with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as skills:
         # CI runners (GITHUB_ACTIONS) make rich force colours; ANSI codes would split "--dry-run".
-        env = dict(os.environ, NO_COLOR="1", MCD_HOME=home, MCD_DEMO_NOW="2026-10-09 12:20", MCD_DEMO_DELAY="0",
+        env = dict(os.environ, NO_COLOR="1", MCD_HOME=home, MCD_DEMO_NOW=f"{DEMO_DAY} 12:20", MCD_DEMO_DELAY="0",
                    PYTHONIOENCODING="utf-8", COLUMNS="110")
         env.pop("MCD_MCP_TOKEN", None)
         cases = scenarios(skills)

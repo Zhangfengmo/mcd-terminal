@@ -1578,21 +1578,36 @@ def party(
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市，默认用 mcd config 里的城市。"),
     pick: int = typer.Option(1, "--pick", help="选第几家门店（默认最近的）。"),
     dates: int = typer.Option(3, "--dates", help="看最近几天的场次。"),
+    people: Optional[int] = typer.Option(None, "--people", "-P", help="你们大概几个人：据此推荐最稳、不怕凑不齐的场次。"),
+    by: Optional[str] = typer.Option(None, "--by", help="想在哪天或之前办，比如生日 YYYY-MM-DD。"),
     book: bool = typer.Option(False, "--book", "-b", help="预约一个场次：选好后下单，扫码付款。"),
     day: Optional[str] = typer.Option(None, "--date", help="预约哪天，YYYY-MM-DD。"),
     at: Optional[str] = typer.Option(None, "--time", help="预约哪个场次，写开始时间，例如 10:30。"),
-    count: Optional[int] = typer.Option(None, "--count", help="参加人数。"),
+    count: Optional[int] = typer.Option(None, "--count", help="报名人数（默认等于 --people）。"),
     kind: Optional[str] = typer.Option(None, "--type", help="包场 或 拼团（活动两种都支持时需要选）。"),
     yes: bool = typer.Option(False, "--yes", "-y", help="跳过确认。"),
 ) -> None:
-    """派对场次：哪个城市、哪家店、哪天几点还能约；加 --book 直接预约，扫码付款。"""
+    """派对场次：哪家店哪天几点还能约、已经报了几个人、拉人截止还剩多久；加 --book 直接预约。"""
+    from . import party as pty
+
     def go() -> None:
         c = state.client
+        now = _now()
+        by_date = _parse_day(by, "--by") if by else None
         rows = _rows(ui.call(c, "mall-points-products", summary=lambda d: f"积分商城共 {len(_rows(d))} 个商品"))
         ev = _party_match(rows, name)
         if not ev:
             raise McdError(f"没找到「{name}」这个派对或体验活动，用 mcd events 看看有哪些")
         spu = int(ev["spuId"])
+        detail = ui.call(c, "mall-product-detail", {"spuId": spu},
+                         summary=lambda r: _party_detail_line(r, ev)) or {}
+        adv = pty.advance_days(detail)
+        fixed = detail.get("partyType", ((detail.get("skuList") or [{}])[0]).get("partyType"))
+        fixed = int(fixed) if str(fixed).lstrip("-").isdigit() else -1
+        want_kind = _party_type(kind)
+        if want_kind and fixed in (1, 2) and want_kind != fixed:
+            raise McdError(f"这个活动只能{PARTY_TYPES[fixed]}")
+        kinds = [fixed] if fixed in (1, 2) else ([want_kind] if want_kind else [1, 2])
         cities = _rows(ui.call(c, "query-party-city", {"spuId": spu}, summary=lambda d: f"{len(_rows(d))} 个城市可以约"))
         want = (city or state.prefs.get("city") or "").replace("市", "")
         ct = next((x for x in cities if want and want in str(x.get("name", ""))), None)
@@ -1609,92 +1624,180 @@ def party(
         ds = _rows(ui.call(c, "query-party-store-date", {"storeCode": str(st.get("code")), "spuId": spu},
                            summary=lambda d: f"{st.get('name')} 有 {len(_rows(d))} 天可以约"))
         if day:
-            ds = [d for d in ds if str(d.get("date")) == day] or ds[:0]
+            ds = [d for d in ds if str(d.get("date")) == day]
             if not ds:
                 raise McdError(f"{st.get('name')} {day} 这天约不了，去掉 --date 看看有哪些日子")
-        out_days, raw = [], []
-        for d in ds[:max(dates, 1)]:
+        elif by_date:
+            ok = [d for d in ds if str(d.get("date")) <= by_date.isoformat()]
+            if not ok:
+                first = ds[0].get("date") if ds else "—"
+                _out(status="too_late", by=by_date.isoformat(), earliest=first, advance_days=adv)
+                raise McdError(f"想在 {by_date:%m-%d} 前办已经来不及了（要提前 {adv} 天预订），这家店最早能约 {first}")
+            ds = ok[-max(dates, 1):]      # 离想办的日子最近的几天
+        else:
+            ds = ds[:max(dates, 1)]
+        raw: list[tuple[str, dict[str, Any]]] = []
+        for d in ds:
             sessions = _rows(ui.call(c, "query-party-store-session",
                                      {"storeCode": str(st.get("code")), "spuId": spu, "dateStr": d.get("date")},
-                                     summary=lambda x, d=d: f"{d.get('date')}：{len(_rows(x))} 个场次"))
+                                     summary=lambda x, d=d: _session_line(d.get("date"), _rows(x))))
             raw += [(str(d.get("date")), x) for x in sessions]
+        n_for_rank = count or people
+        ranked = pty.rank(raw, kinds, n_for_rank or 1, now, adv, by_date) if n_for_rank else []
+        out_days = []
+        for d in ds:
             out_days.append({"date": d.get("date"), "sessions": [
-                {"start": x.get("timeStart"), "end": x.get("timeEnd"), "left": x.get("leftNum"),
-                 "min": x.get("partyMin"), "max": x.get("partyMax"),
-                 "price_yuan": agent.yuan(x.get("price")) if isinstance(x.get("price"), int) else x.get("price")}
-                for x in sessions]})
+                dict({"start": x.get("timeStart"), "end": x.get("timeEnd"), "left": x.get("leftNum"),
+                      "min": x.get("partyMin"), "max": x.get("partyMax"), "joined": pty.joined(x),
+                      "price_yuan": agent.yuan(x.get("price")) if isinstance(x.get("price"), int) else x.get("price")},
+                     deadline=pty.deadline(str(d.get("date")), adv).strftime("%Y-%m-%d %H:%M"),
+                     hours_left=round(max((pty.deadline(str(d.get("date")), adv) - now).total_seconds() / 3600, 0), 1))
+                for dd, x in raw if dd == str(d.get("date"))]})
         store_out = {"name": st.get("name"), "code": st.get("code"), "address": st.get("address"),
                      "distance": st.get("distanceText") or st.get("distance")}
+        rules = {"advance_days": adv, "types": [PARTY_TYPES[k] for k in kinds],
+                 "group_rule": "拼团在截止前没凑够最少人数会自动取消并退款",
+                 "deadline_note": f"截止时间按“提前 {adv} 天预订”推算，以 App 为准；joined 按 最多人数-剩余位置 推算"}
         _out(status="listed", event=ev.get("spuName"), spu_id=spu, city=ct.get("name"), store=store_out,
-             other_stores=[x.get("name") for x in stores[:6] if x is not st], days=out_days,
-             note="price_yuan 是每人价格；想预约：加 --book（可配 --date --time --count），确认后下单、扫码付款")
+             other_stores=[x.get("name") for x in stores[:6] if x is not st], days=out_days, rules=rules,
+             recommended=[f.as_dict() for f in ranked[:3]] or None,
+             note="price_yuan 是每人价格；加 --people 人数可以推荐最稳的场次；想预约加 --book（可配 --date --time --count）")
         if not book:
-            ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
-            ui.console.print()
-            rows_ = []
-            for d in out_days:
-                for x in d["sessions"] or [{"start": "—", "end": "", "left": 0}]:
-                    rows_.append([d["date"] or "", f"{x.get('start') or ''}–{x.get('end') or ''}",
-                                  Text(f"余 {x.get('left')}", style=ui.GREEN if (x.get("left") or 0) > 0 else ui.DIM),
-                                  f"¥{x['price_yuan']:g}/人" if isinstance(x.get("price_yuan"), (int, float)) else ""])
-            ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("每人", "right")], rows_)
-            ui.console.print()
-            ui.tip(Text.assemble(("想预约：", ""), ui.cmd(_again(add="--book") or f"mcd party {name} --book"),
-                                 ("（会一步步选场次和人数，确认后才下单）", ui.DIM)))
+            _show_party(ev, ct, st, raw, adv, now, ranked, n_for_rank, kinds)
             return
-        _book_party(ev, spu, ct, st, raw, at, count, kind, yes)
+        _book_party(ev, spu, ct, st, raw, at, count or people, kinds, yes, detail, adv, now, by_date)
     _run("party", go)
 
 
+def _parse_day(v: str, flag: str) -> date:
+    try:
+        return datetime.strptime(v, "%Y-%m-%d").date()
+    except ValueError:
+        raise McdError(f"{flag} 的格式是 YYYY-MM-DD，例如 2026-10-24")
+
+
+def _party_detail_line(r: Any, ev: dict[str, Any]) -> str:
+    r = r or {}
+    bits = [str(r.get("spuName") or ev.get("spuName") or "")]
+    if r.get("partyPeople"):
+        bits.append(f"{r['partyPeople']} 人")
+    if r.get("partyAge"):
+        bits.append(f"{r['partyAge']} 岁")
+    t = r.get("partyType")
+    bits.append({1: "只能包场", 2: "只能拼团"}.get(t, "包场或拼团"))
+    return " · ".join(bits)
+
+
+def _session_line(day: Any, sessions: list[dict[str, Any]]) -> str:
+    from .party import joined
+    if not sessions:
+        return f"{day}：没有场次"
+    parts = [f"{x.get('timeStart')} 已报 {joined(x)}/{x.get('partyMin')}" if (x.get("leftNum") or 0) > 0
+             else f"{x.get('timeStart')} 满了" for x in sessions]
+    return f"{day}：" + "，".join(parts)
+
+
+def _show_party(ev: dict[str, Any], ct: dict[str, Any], st: dict[str, Any], raw: list, adv: int,
+                now: datetime, ranked: list, people: int | None, kinds: list[int]) -> None:
+    from . import party as pty
+    ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
+    ui.console.print()
+    rows_ = []
+    for d, x in raw:
+        dl = pty.deadline(d, adv)
+        hours = (dl - now).total_seconds() / 3600
+        full = (x.get("leftNum") or 0) <= 0
+        j, lo = pty.joined(x), x.get("partyMin") or 1
+        rows_.append([d, f"{x.get('timeStart') or ''}–{x.get('timeEnd') or ''}",
+                      Text("满了", style=ui.DIM) if full else
+                      Text(f"已报 {j} / 至少 {lo}", style=ui.GREEN if j >= lo else (ui.AMBER if j else "")),
+                      Text(f"{dl:%m-%d} · {pty.countdown(hours)}", style=ui.RED if 0 < hours < 24 else ui.DIM),
+                      f"¥{x['price'] / 100:g}/人" if isinstance(x.get("price"), int) else ""])
+    ui.simple_table([("日期", "left"), ("场次", "left"), ("报名", "left"), ("拉人截止", "left"), ("每人", "right")], rows_)
+    ui.console.print()
+    if 2 in kinds:
+        ui.tip(Text.assemble(("拼团截止前凑不够最少人数，会自动取消并退款；", ""), (f"需提前 {adv} 天预订", "bold")))
+    if ranked:
+        best = ranked[0]
+        ui.say(Text.assemble(("你们 ", ""), (f"{people} 人", "bold"), ("，最稳的是 ", ""),
+                             (f"{best.day} {best.session.get('timeStart')} {pty.KINDS[best.kind]}", f"bold {ui.GREEN}"),
+                             (f"：{best.verdict}", "")))
+        if not best.safe:
+            ui.tip(Text(f"每一场都还差人：{best.deadline:%m-%d} 前凑不齐 {best.min} 人就会取消。可以先把邀请发出去，"
+                        "或者多约几位小朋友再订", style=ui.AMBER))
+        for f in ranked[1:3]:
+            ui.tip(f"其次：{f.day} {f.session.get('timeStart')} {pty.KINDS[f.kind]}，{f.verdict}")
+        ui.tip(Text.assemble(("就约这一场：", ""), ui.cmd(_again(add="--book") + f" --date {best.day} --time {best.session.get('timeStart')}"
+                                                       + (f" --type {pty.KINDS[best.kind]}" if len(kinds) > 1 else ""))))
+    else:
+        ui.tip(Text.assemble(("告诉我你们几个人，帮你挑最不怕凑不齐的场次：", ""),
+                             ui.cmd((_again() or "mcd party 名字") + " --people 6")))
+
+
 def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, Any],
-                raw: list[tuple[str, dict[str, Any]]], at: str | None, count: int | None,
-                kind: str | None, yes: bool) -> None:
+                raw: list[tuple[str, dict[str, Any]]], at: str | None, count: int | None, kinds: list[int],
+                yes: bool, detail: dict[str, Any], adv: int, now: datetime, by_date: date | None) -> None:
     """party-order-create：城市 → 门店 → 日期 → 场次 → 类型和人数 → 确认 → 下单付款。"""
+    from . import party as pty
     c = state.client
-    open_ = [(d, x) for d, x in raw if (x.get("leftNum") or 0) > 0]
-    if at:
-        open_ = [(d, x) for d, x in open_ if str(x.get("timeStart", "")).startswith(at)]
-    if not open_:
-        _out(status="no_session")
-        raise McdError("这几天的场次都约满了，换一天（--date）或换一家店（--pick 2）试试")
-    label = lambda d, x: f"{d} {x.get('timeStart')}–{x.get('timeEnd')}（余 {x.get('leftNum')}）"
-    if len(open_) > 1 and not at:
-        if state.json or yes:
-            _out(status="choose_session", sessions=[{"date": d, "time": x.get("timeStart"), "left": x.get("leftNum")}
-                                                    for d, x in open_],
-                 note="用 --date 和 --time 指定一个场次再预约")
-            ui.say("有几个场次可以约，用 --date 和 --time 选一个")
-            return
-        i = ui.select("选个场次", [], "哪一场？", [label(d, x) for d, x in open_[:6]] + ["先不约"])
-        if i is None or i >= min(len(open_), 6):
-            _out(status="cancelled")
-            return
-        open_ = [open_[i]]
-    d, x = open_[0]
-    detail = ui.call(c, "mall-product-detail", {"spuId": spu},
-                     summary=lambda r: str((r or {}).get("spuName") or ev.get("spuName"))) or {}
     if str(detail.get("shopId", "5")) != "5":
         raise McdError("这个活动不支持在线预约，请在麦当劳 App 里报名")
     sku = (detail.get("skuList") or [{}])[0]
-    fixed = detail.get("partyType", sku.get("partyType"))
-    fixed = int(fixed) if str(fixed).lstrip("-").isdigit() else -1
-    ptype = fixed if fixed in (1, 2) else _party_type(kind)
-    if ptype is None:
-        if state.json or yes:
-            _out(status="choose_type", options=["包场", "拼团"], note="这个活动包场、拼团都可以，用 --type 选一个")
-            ui.say("包场还是拼团？用 --type 包场 或 --type 拼团")
-            return
-        j = ui.select("包场还是拼团？", ["包场：整场只有你们", "拼团：和其他家庭一起参加"], "选哪种？", ["包场", "拼团", "先不约"])
-        if j is None or j == 2:
-            _out(status="cancelled")
-            return
-        ptype = j + 1
-    elif kind and _party_type(kind) != fixed and fixed in (1, 2):
-        raise McdError(f"这个活动只能{PARTY_TYPES[fixed]}")
-    left = x.get("leftNum")
     limit = detail.get("spuLimit") or {}
     base = int(limit.get("baseCount") or 1)            # 至少买几份（尊享版生日派对是 5）
     single = int(limit.get("limitSingle") or 0)         # 一单最多几份
+    open_ = [(d, x) for d, x in raw if (x.get("leftNum") or 0) > 0
+             and pty.deadline(d, adv) > now and (not at or str(x.get("timeStart", "")).startswith(at))]
+    if not open_:
+        _out(status="no_session")
+        raise McdError("这几天的场次都约满了或过了预约截止，换一天（--date / --by）或换一家店（--pick 2）试试")
+    guess = count or 1
+    ranked = pty.rank(open_, kinds, guess, now, adv, by_date)
+    # 选场次：有多个就按“最稳”排好让人挑
+    if len(open_) > 1:
+        order = []
+        for f in ranked:
+            if (f.day, f.session.get("id")) not in [(o[0], o[1].get("id")) for o in order]:
+                order.append((f.day, f.session, f))
+        order += [(d, x, None) for d, x in open_ if (d, x.get("id")) not in [(o[0], o[1].get("id")) for o in order]]
+        if state.json or yes:
+            _out(status="choose_session", sessions=[
+                (f.as_dict() if f else {"date": d, "time": x.get("timeStart"), "left": x.get("leftNum")}) for d, x, f in order],
+                note="已按“最不怕凑不齐”排好：先问用户几个人（--count），再用 --date 和 --time 选一个场次")
+            ui.say("有几个场次可以约，用 --date 和 --time 选一个（加 --count 人数可以看哪场最稳）")
+            return
+        opts = [f"{d} {x.get('timeStart')}–{x.get('timeEnd')}" + (f"  {f.verdict}" if f and count else
+                                                                  f"  已报 {pty.joined(x)}/至少 {x.get('partyMin')}")
+                + (f" · 截止{pty.countdown(f.hours_left)}" if f and count and f.need else "")
+                + ("（推荐）" if i == 0 and f and f.safe and count else "") for i, (d, x, f) in enumerate(order[:6])]
+        i = ui.select("选个场次", [Text(f"拼团截止前凑不够人会自动取消退款，需提前 {adv} 天预订", style=ui.DIM)],
+                      "哪一场？", opts + ["先不约"])
+        if i is None or i >= min(len(order), 6):
+            _out(status="cancelled")
+            return
+        open_ = [order[i][:2]]
+    d, x = open_[0]
+    # 选方式
+    if len(kinds) == 1:
+        ptype = kinds[0]
+    else:
+        fits = {k: pty.assess(d, x, k, guess, now, adv) for k in kinds}
+        if state.json or yes:
+            _out(status="choose_type", options=[dict(fits[k].as_dict(), type=PARTY_TYPES[k]) for k in kinds],
+                 note="包场：整场只有你们，人数全靠自己；拼团：和别的家庭凑，截止前凑不够会自动取消。问用户后用 --type 选")
+            ui.say("包场还是拼团？用 --type 包场 或 --type 拼团")
+            return
+        first = min(kinds, key=lambda k: (not fits[k].safe, fits[k].need, k != 1)) if count else 1   # 推荐的放第一个
+        order_k = [first, 3 - first]
+        labels = {1: "包场", 2: "拼团"}
+        j = ui.select("包场还是拼团？", [f"包场：整场只有你们 · {fits[1].verdict}", f"拼团：和别的家庭一起 · {fits[2].verdict}"],
+                      "选哪种？", [labels[k] + ("（推荐）" if count and k == first and fits[k].safe else "") for k in order_k]
+                      + ["先不约"])
+        if j is None or j == 2:
+            _out(status="cancelled")
+            return
+        ptype = order_k[j]
+    left = x.get("leftNum")
     lo = max(int(x.get("partyMin") or 1), base) if ptype == 1 else base
     caps = [v for v in (x.get("partyMax"), single, left if ptype == 2 else None) if v]
     hi = min(caps) if caps else None
@@ -1702,22 +1805,39 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
     if n < lo or (hi and n > hi):
         raise McdError(f"人数不对：这一场{PARTY_TYPES[ptype]}要 {lo}" + (f"–{hi}" if hi else "") + " 人"
                        + (f"（还剩 {left} 个位置）" if ptype == 2 and left else ""))
+    fit = pty.assess(d, x, ptype, n, now, adv)
+    safer = None
+    if not fit.safe:   # 这一场有风险：看看同几天里有没有不用等别人的
+        safer = next((f for f in pty.rank(raw, kinds, n, now, adv, by_date) if f.safe), None)
     price = _fen_of(x.get("price"))                     # 每人价格，单位分（和商品 skuList.price 一致）
     total = price * n if price is not None else None
     summary_ = {"event": ev.get("spuName"), "store": st.get("name"), "date": d, "time": f"{x.get('timeStart')}–{x.get('timeEnd')}",
                 "type": PARTY_TYPES[ptype], "count": n, "min": lo, "max": hi,
                 "price_per_person_yuan": agent.yuan(price) if price is not None else None,
                 "total_yuan": agent.yuan(total) if total is not None else None,
-                "people": detail.get("partyPeople") or None, "age": detail.get("partyAge") or None}
+                "people": detail.get("partyPeople") or None, "age": detail.get("partyAge") or None,
+                "risk": fit.as_dict(), "safer_option": safer.as_dict() if safer else None}
     _out(status="planned", booking=summary_)
+    if ptype == 1:
+        risk = Text("整场只有你们，不用等别人凑团", style=ui.GREEN)
+    elif fit.need:
+        risk = Text(f"⚠ 加上你们还差 {fit.need} 人成团：{fit.deadline:%m-%d %H:%M} 前凑不齐会自动取消并退款"
+                    f"（{pty.countdown(fit.hours_left)}）", style=f"bold {ui.AMBER}")
+    else:
+        risk = Text(f"加上你们已经够 {fit.min} 人，能成团", style=ui.GREEN)
     details = [Text.assemble((str(ev.get("spuName")), "bold")),
                f"{ct.get('name')} {st.get('name')}",
                Text.assemble((f"{d}  {x.get('timeStart')}–{x.get('timeEnd')}", f"bold {ui.ACCENT}")),
                f"{PARTY_TYPES[ptype]} · {n} 人" + (f"（适合 {detail['partyAge']} 岁）" if detail.get("partyAge") else ""),
+               risk,
                Text.assemble(("约 ", ui.DIM), (ui.yuan(total), f"bold {ui.GREEN}"), (f"（{ui.yuan(price)}/人 × {n}，以下单页为准）", ui.DIM))
-               if total is not None else Text("价格以下单页为准", style=ui.DIM),
-               Text("下一步扫码付款；退改以活动规则为准", style=ui.DIM)]
-    if not _gate(yes, lambda: ui.ask("预约派对", details, "就约这一场吗？", ("好，预约", "先不约"))):
+               if total is not None else Text("价格以下单页为准", style=ui.DIM)]
+    if safer:
+        details.append(Text(f"更稳的：{safer.day} {safer.session.get('timeStart')} {PARTY_TYPES[safer.kind]}（{safer.verdict}）",
+                            style=ui.DIM))
+    details.append(Text("下一步扫码付款；退改以活动规则为准", style=ui.DIM))
+    yes_label = "好，预约，我去拉人" if ptype == 2 and fit.need else "好，预约"
+    if not _gate(yes, lambda: ui.ask("预约派对", details, "就约这一场吗？", (yes_label, "先不约"))):
         return
     args = {"spuId": spu, "skuId": sku.get("skuId"), "partyType": ptype, "code": str(ct.get("code")),
             "storeCode": str(st.get("code")), "dateStr": d, "id": x.get("id"), "timeStart": x.get("timeStart"),
@@ -1727,15 +1847,31 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
                 summary=lambda r: f"订单 {(r or {}).get('orderId', '')} · 待支付") or {}
     url = r.get("payH5Url") or ""
     amount = _fen_of(r.get("amount")) if r.get("amount") not in (None, "") else total
-    _out(status="booked", booking=summary_, order={"order_id": r.get("orderId"), "pay_url": url or None,
-                                                   "pay_yuan": agent.yuan(amount) if amount is not None else None,
-                                                   "next": "把 pay_url 发给用户，由用户自己打开付款"})
+    title = str(ev.get("spuName"))
+    remind_day = f"mcd remind party --title {_q(title)} --date {d} --at {x.get('timeStart')}"
+    check = pty.check_time(fit, now) if ptype == 2 and fit.need else None
+    remind_cut = (f"mcd remind party --title {_q('拉人截止：' + title)} --date {check:%Y-%m-%d} --at {check:%H:%M}"
+                  if check else None)
+    invite = pty.invite_text(title, str(st.get("name")), fit) if ptype == 2 else None
+    _out(status="booked", booking=summary_, invite_text=invite,
+         reminders=[remind_day] + ([remind_cut] if remind_cut else []),
+         order={"order_id": r.get("orderId"), "pay_url": url or None,
+                "pay_yuan": agent.yuan(amount) if amount is not None else None,
+                "next": "把 pay_url 发给用户，由用户自己打开付款" + ("；把 invite_text 给用户转发到亲友群拉人" if invite else "")})
     if url:
         ui.pay_link(url, amount)
     else:
         ui.say("预约已提交，付款请在麦当劳 App 的订单里完成。")
+    if invite:
+        ui.say(Text.assemble(("拉人文案（复制发到亲友群）：", "bold")))
+        ui.console.print(ui._indent(Text(invite)))
     ui.console.print()
-    ui.tip(Text.assemble(("别忘了那天：", ""), ui.cmd(f"mcd remind party --title {_q(str(ev.get('spuName')))} --date {d} --at {x.get('timeStart')}")))
+    if remind_cut:
+        ui.tip(Text.assemble(("截止前提醒你看看人齐了没：", ""), ui.cmd(remind_cut)))
+    ui.tip(Text.assemble(("别忘了那天：", ""), ui.cmd(remind_day)))
+    if ptype == 2:
+        ui.tip(Text.assemble(("随时看这一场已经报了几个人：", ""),
+                             ui.cmd(f"mcd party {_q(str(ev.get('spuId')))} -c {_q(str(ct.get('name')))} --date {d}")))
 
 
 @app.command()

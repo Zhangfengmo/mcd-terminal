@@ -278,6 +278,8 @@ def replay_more(monkeypatch, tmp_path):
     from mcd_terminal import cli
     monkeypatch.setenv("MCD_HOME", str(tmp_path))
     monkeypatch.setattr(cli.State, "client", property(lambda self: ReplayMore()))
+    from datetime import datetime
+    monkeypatch.setattr(cli, "_now", lambda: datetime(2026, 10, 9, 20, 0))   # when the party data was captured
     return cli
 
 
@@ -333,3 +335,13 @@ def test_real_group_promotions_split_by_meal_service():
 def test_real_survey_without_answer_is_not_an_error(replay_more):
     body = _body(replay_more, "survey", "1030938700000000000000000000")
     assert body["ok"] is True and body["surveys"] == []
+
+
+def test_real_party_sessions_rank_by_risk(replay_more):
+    """Real sessions: min 5, max 12, 12 left (nobody yet). 3 people can't form a group alone; 6 can 包场."""
+    few = _body(replay_more, "party", "亲子读书会", "-c", "上海", "--people", "3")
+    top = few["recommended"][0]
+    assert top["safe"] is False and top["need_more"] == 2 and top["type"] == "拼团"
+    assert few["rules"]["advance_days"] == 3 and top["deadline"].endswith("23:59")
+    six = _body(replay_more, "party", "亲子读书会", "-c", "上海", "--people", "6")
+    assert six["recommended"][0]["safe"] is True and six["recommended"][0]["type"] == "包场"

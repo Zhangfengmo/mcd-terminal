@@ -57,7 +57,8 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “积分抽奖有什么奖品”“我抽中了什么” | `mcd --json prizes` |
 | “帮我抽一次奖” | `mcd --json draw` → 把 `cost`（本次扣多少次数/积分，`lottery.then` 不为空时说明次数用完后改扣积分）告诉用户 → 用户明确说“抽”后执行 `confirm_with`；一次只抽一次，不要试抽、连抽；“试试看”“能抽就抽”不算确认 |
 | “有什么派对/亲子活动”“生日派对哪天能约” | `mcd --json events`，再 `mcd --json party <名字> --city <城市>` |
-| “帮我约周六上午的生日派对” | `mcd --json party <名字> --city <城市> --book`：`status` 为 `choose_session` 时让用户选场次再加 `--date --time`；`choose_type` 时问包场还是拼团再加 `--type`；人数用 `--count`；`needs_confirmation` 时讲清楚门店、时间、方式、人数、价格，同意后 `confirm_with`，把 `order.pay_url` 给用户付款 |
+| “孩子生日想办个派对，我们大概 4 个人” | `mcd --json party <名字> --city <城市> --people 4 --by <生日>`：看 `recommended`（按“最不怕凑不齐”排好，`safe` 为 true 表示不用等别人，`need_more` 是还差几人、`deadline`/`hours_left` 是拉人截止）。拼团截止前凑不够最少人数会**自动取消并退款**，需提前 3 天预订——一定把这两条和风险讲给用户 |
+| “帮我约周六上午的生日派对” | `mcd --json party <名字> --city <城市> --book`：`status` 为 `choose_session` 时让用户选场次再加 `--date --time`；`choose_type` 时问包场还是拼团再加 `--type`；人数用 `--count`；`needs_confirmation` 时讲清楚门店、时间、方式、人数、价格，同意后 `confirm_with`，把 `order.pay_url` 给用户付款；拼团还差人时把 `invite_text` 给用户转发拉人，并建议用 `reminders` 里的命令设截止前提醒 |
 | “问卷送的券呢”“上次填的问卷有券吗” | `mcd --json survey [订单号]` |
 | “给公司订团餐，看看怎么凑满减” | `mcd --json order <餐品> --group`，看 `group_promotions`：`applied` 是已享受的一档，`next.add_yuan` 是再加多少到下一档、`next.fill_with` 是刚好够的一样 |
 | “券快过期了提醒我”“这个活动开始时提醒我” | `mcd --json remind coupons` / `remind campaign -t <活动名>` → 讲清楚加什么提醒 → 同意后 `confirm_with` |

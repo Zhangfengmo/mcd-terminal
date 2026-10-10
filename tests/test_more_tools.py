@@ -1,5 +1,6 @@
 """The last four server tools: group-meal promotions, survey coupons, lottery draw, party booking."""
 import json
+from datetime import date, timedelta
 
 from typer.testing import CliRunner
 
@@ -70,9 +71,9 @@ def test_party_booking_sends_every_session_field(tmp_path, monkeypatch):
             seen.update(kw)
             return super()._party_order_create(**kw)
     monkeypatch.setattr(cli.State, "client", property(lambda self: Spy()))
-    body = _json("party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12", "--time", "10:30",
+    body = _json("party", "生日派对", "-c", "上海", "--book", "--date", (date.today() + timedelta(days=3)).isoformat(), "--time", "10:30",
                  "--type", "拼团", "--count", "2", "-y")
     assert body["status"] == "booked", body
     assert seen["partyType"] == 2 and seen["count"] == 2 and seen["code"] == "310100"
-    assert seen["storeCode"] == "1450001" and seen["id"] == 1 and seen["timeStart"] == "10:30" and seen["leftNum"] == 8
+    assert seen["storeCode"] == "1450001" and seen["id"] == 70131 and seen["timeStart"] == "10:30" and seen["leftNum"] == 9
     assert seen["skuId"] == 20701 and seen["partyTimeInfo"]["partyMin"] == 6
