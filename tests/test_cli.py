@@ -359,3 +359,24 @@ def test_take_way_preference():
     assert _take_way(price) == "eat-in"
     assert _take_way(price, "外带") == "locker-out"
     assert _take_way({"takeWayList": [{"code": "eat-in", "title": "堂食"}]}, "外带") == "eat-in"
+
+
+def test_new_addresses_are_checked_before_they_reach_mcdonalds():
+    from mcd_terminal.cli import check_address
+    from mcd_terminal.client import McdError
+    ok = check_address(" 上海 ", "张三", "138-0000-0000", "人民大道  200 号", "3 楼 302", "男")
+    assert ok == {"city": "上海市", "contactName": "张三", "phone": "13800000000", "address": "人民大道 200 号",
+                  "addressDetail": "3 楼 302", "gender": "先生"}
+    for bad, why in ((("上海", "张三", "1380000000", "人民大道", "302", ""), "手机号"),
+                     (("Shanghai", "张三", "13800000000", "人民大道", "302", ""), "城市"),
+                     (("上海", "12345", "13800000000", "人民大道", "302", ""), "收货人"),
+                     (("上海", "张三", "13800000000", "人", "302", ""), "小区"),
+                     (("上海", "张三", "13800000000", "人民大道", "", ""), "门牌号"),
+                     (("上海", "张三", "13800000000", "人民大道", "302", "老板"), "称谓")):
+        with pytest.raises(McdError, match=why):
+            check_address(*bad)
+
+
+def test_address_add_rejects_a_bad_phone_without_calling_the_server():
+    res = run("address", "add", "-c", "上海", "--name", "麦麦", "--phone", "12345", "--street", "人民大道 200 号", "--detail", "3 楼")
+    assert res.exit_code == 1 and "手机号" in res.output and "delivery-create-address" not in res.output

@@ -256,6 +256,8 @@ class _Server(ThreadingHTTPServer):
 def serve(demo: bool = False, port: int = 0, open_browser: bool = True) -> tuple[ThreadingHTTPServer, str]:
     """Start the server; returns it and the URL to open (contains the per-run secret)."""
     secret = secrets.token_urlsafe(18)
+    if demo:
+        os.environ["MCD_WEB_DEMO"] = "1"
     httpd = _Server(("127.0.0.1", port), make_handler(secret, demo))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/?s={secret}"
     if open_browser:
@@ -268,6 +270,7 @@ def self_test(demo: bool) -> list[tuple[str, bool]]:
     import urllib.error
     import urllib.request
 
+    had_flag = "MCD_WEB_DEMO" in os.environ
     httpd, url = serve(demo=demo, open_browser=False)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     base = url.split("/?")[0]
@@ -310,4 +313,6 @@ def self_test(demo: bool) -> list[tuple[str, bool]]:
     finally:
         httpd.shutdown()
         httpd.server_close()
+        if not had_flag:
+            os.environ.pop("MCD_WEB_DEMO", None)
     return results

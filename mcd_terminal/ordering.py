@@ -206,6 +206,9 @@ def _delivery_scene(client: Any, prefs: Prefs, mode: str, address: str | None, p
     addr = next((a for a in addrs if str(a.get("addressId")) == str(want)), addrs[0])
     prefs.set("address_id", str(addr["addressId"]))
     prefs.set("address_text", str(addr.get("fullAddress") or ""))
+    who = " ".join(x for x in (str(addr.get("contactName") or ""), str(addr.get("phone") or "")) if x)
+    if who:
+        prefs.set("address_contact", who)
     stores = _rows(ui.call(
         client, "delivery-query-stores", {"addressId": addr["addressId"], "beType": MODES[mode][0]},
         summary=lambda d: f"送到 {addr.get('fullAddress', '')}" + (

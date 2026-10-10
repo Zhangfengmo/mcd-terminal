@@ -101,6 +101,9 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("config take-way", ["--demo", "config", "take-way", "外带"])
     add("config reset one", ["--demo", "config", "reset", "points"])
     add("config reset all", ["--demo", "config", "reset"])
+    add("address add rejects a bad phone", ["--demo", "address", "add", "--city", "上海", "--name", "麦麦",
+                                            "--phone", "12345", "--street", "人民大道 200 号", "--detail", "3 楼"],
+        exit_code=1, contains=["手机号"], lacks=["delivery-create-address"])
     add("address add an existing one", ["--demo", "address", "add", "--city", "上海市", "--name", "麦麦",
                                         "--phone", "15200006666", "--street", "人民大道 200 号", "--detail", "3 楼"],
         contains=["不重复添加"], lacks=["delivery-create-address"])

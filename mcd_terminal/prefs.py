@@ -60,12 +60,13 @@ def clear_token() -> bool:
 
 
 class Prefs:
-    def __init__(self, persist: bool = True) -> None:
+    def __init__(self, persist: bool = True, name: str = "prefs.json") -> None:
         self.persist = persist
+        self.file = home() / name
         self.data: dict[str, Any] = {}
         if persist:
             try:
-                self.data = json.loads(_path().read_text(encoding="utf-8"))
+                self.data = json.loads(self.file.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 self.data = {}
 
@@ -88,7 +89,7 @@ class Prefs:
         if not self.persist:
             return
         try:
-            p = _path()
+            p = self.file
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
         except OSError:

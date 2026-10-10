@@ -322,6 +322,33 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .steps span { flex: 1; height: 10px; border-radius: 99px; background: var(--sunken); border: 2px solid var(--ink); }
 .steps span.on { background: var(--pickle); }
 
+/* ---------------------------------------------------------------- settings */
+dialog.wide { width: min(640px, calc(100vw - 32px)); }
+.set { border-top: 2px dashed var(--line); padding: 16px 0 4px; }
+.set:first-of-type { border-top: 0; padding-top: 4px; }
+.set h4 { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
+.set .now { color: var(--ink-2); font-size: 14px; margin: 0 0 10px; }
+.seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 99px; padding: 2px; background: var(--sunken); flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 3px 14px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.addr-list { display: grid; gap: 8px; margin-bottom: 10px; }
+.addr { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%;
+        border: 2px solid var(--line); border-radius: var(--r-s); padding: 10px 12px; background: var(--surface); }
+.addr[aria-checked="true"] { border-color: var(--ink); background: var(--sun-soft); }
+.addr .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); }
+.addr[aria-checked="true"] .dot { background: var(--ink); box-shadow: inset 0 0 0 3px var(--sun-soft); }
+.addr b { display: block; font-size: 14px; }
+.addr small { color: var(--ink-3); }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.form .full { grid-column: 1 / -1; }
+.form label { margin: 6px 0 2px; }
+.form select { width: 100%; border: 2px solid var(--ink); border-radius: 10px; padding: 7px 10px; background: var(--surface); }
+.form .hint { font-size: 12px; color: var(--ketchup); min-height: 16px; }
+.form input[aria-invalid="true"] { border-color: var(--ketchup); }
+.inline { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.inline input { width: auto; flex: 1; min-width: 110px; }
+@media (max-width: 560px) { .form { grid-template-columns: 1fr; } }
+
 /* ---------------------------------------------------------------- dialogs etc. */
 dialog { border: 2px solid var(--ink); border-radius: var(--r-l); padding: 0; width: min(460px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 6px 6px 0 #221c35; }
 dialog::backdrop { background: rgba(34, 28, 53, .5); }
@@ -367,7 +394,7 @@ footer a { color: inherit; }
       <button data-mode="pickup" aria-pressed="true">到店自取</button>
       <button data-mode="delivery" aria-pressed="false">外送</button>
     </div>
-    <div class="store"><span id="storeName">门店加载中…</span><button id="changeStore">换门店</button></div>
+    <div class="store"><span id="storeName">门店加载中…</span><button id="openSettings">⚙ 我的设置</button></div>
   </div>
   <nav role="tablist" aria-label="页面">
     <button role="tab" data-tab="today" aria-selected="true">今日</button>
@@ -430,9 +457,10 @@ document.querySelectorAll(".mode button").forEach((b) => b.addEventListener("cli
   state.mode = b.dataset.mode;
   document.querySelectorAll(".mode button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
   state.menu = null; state.plan = null;
+  headerFrom(state.config);
   if (state.tab === "order") renderOrder();
 }));
-$("#changeStore").addEventListener("click", changeStore);
+$("#openSettings").addEventListener("click", () => openSettings());
 
 function go(tab) {
   state.tab = tab;
@@ -753,9 +781,15 @@ async function renderOrder() {
   if (!state.menu) {
     m.innerHTML = `<p class="loading">正在打开门店菜单…</p>`;
     const d = await run(["menu", modeFlag(), "--limit", "500"]);
-    if (!d.ok) { showError(m, d.error); if (/地址/.test(d.error || "")) m.insertAdjacentHTML("beforeend", `<p class="muted">外送需要先在终端里添加收货地址：<code>mcd address add</code></p>`); return; }
+    if (!d.ok) {
+      if (/地址/.test(d.error || "")) {
+        m.innerHTML = `<div class="empty"><h2>外送需要一个收货地址</h2><p>加一次就行，以后外送都默认送到这里。</p><button class="btn gold" id="addAddr">添加收货地址</button></div>`;
+        $("#addAddr").addEventListener("click", () => openSettings("address"));
+      } else showError(m, d.error);
+      return;
+    }
     state.menu = d.items || [];
-    $("#storeName").textContent = (d.scene && d.scene.store) || d.store || "";
+    if (state.mode !== "delivery") $("#storeName").textContent = "🏪 " + ((d.scene && d.scene.store) || d.store || "");
   }
   const cats = ["全部", ...new Set(state.menu.map((x) => x.category).filter(Boolean))];
   m.innerHTML = `
@@ -1043,28 +1077,121 @@ async function showTrack(oid) {
     })));
 }
 
-/* ---------------------------------------------------------------- store */
-function changeStore() {
-  openDialog(`<h3>换一家门店</h3><p class="muted">告诉我在哪个城市、哪附近，我帮你找最近的一家，以后都默认去这家。</p>
-    <label for="city">城市</label><input id="city" placeholder="上海" autocomplete="address-level2">
-    <label for="near">附近的地点</label><input id="near" placeholder="人民广场">
-    <div class="actions"><button class="btn ghost" data-close>取消</button><button class="btn gold" data-yes>找门店</button></div>`,
-    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
-      const city = $("#city", dlg).value.trim(), near = $("#near", dlg).value.trim();
-      if (!city || !near) return toast("城市和地点都要填");
-      const d = await run(["config", "store", "-c", city, "-l", near]);
-      if (!d.ok) return toast(d.error);
-      closeDialog(); $("#storeName").textContent = d.store.name; toast("以后默认去 " + d.store.name);
-      state.menu = null; state.plan = null; if (state.tab === "order") renderOrder();
-    }));
+/* ---------------------------------------------------------------- settings */
+/* Everything saved in prefs.json (mcd config), shown and edited in one place. */
+const ADDR_RULES = {
+  city: [(v) => /^[\u4e00-\u9fa5]{2,10}市?$/.test(v), "写中文城市名，例如 上海"],
+  name: [(v) => v.length >= 1 && v.length <= 20 && !/^\d+$/.test(v), "写个称呼，1–20 个字"],
+  phone: [(v) => /^1[3-9]\d{9}$/.test(v.replace(/[\s-]/g, "")), "11 位手机号"],
+  street: [(v) => v.length >= 2 && v.length <= 60, "小区或楼宇，2–60 个字"],
+  detail: [(v) => v.length >= 1 && v.length <= 40, "门牌号，例如 3 楼 302"],
+};
+function headerFrom(raw) {
+  if (state.mode === "delivery") {
+    $("#storeName").textContent = raw && raw.address ? "🛵 送到 " + raw.address : "🛵 外送：还没设置收货地址";
+  } else {
+    $("#storeName").textContent = raw && raw.store ? "🏪 " + raw.store.name : "🏪 第一次点餐时自动选门店";
+  }
 }
 async function loadStore() {
   const d = await run(["config"]);
-  if (d.ok && d.config) {
-    const s = d.config.store || "";
-    $("#storeName").textContent = s.startsWith("—") ? "第一次点餐时自动选门店" : s;
-    if (d.config.mode === "麦乐送") $(".mode [data-mode=delivery]").click();
+  if (!d.ok) return;
+  state.config = d.raw || {};
+  if ((state.config.mode === "delivery") !== (state.mode === "delivery")) {
+    state.mode = state.config.mode === "delivery" ? "delivery" : "pickup";
+    document.querySelectorAll(".mode button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.mode === state.mode)));
   }
+  headerFrom(state.config);
+}
+async function openSettings(focus) {
+  $("#dlg").classList.add("wide");
+  openDialog(`<h3>我的设置</h3><p class="loading">读取中…</p>`);
+  const [c, a] = await Promise.all([run(["config"]), run(["address"])]);
+  const raw = (c.ok && c.raw) || {};
+  const addrs = (a.ok && a.addresses) || [];
+  const pts = raw.points == null ? "auto" : raw.points === "off" ? "off" : "cap";
+  const seg = (name, cur, opts) => `<div class="seg" role="group" data-seg="${name}">${opts.map(([v, t]) => `<button data-v="${v}" aria-pressed="${v === cur}">${t}</button>`).join("")}</div>`;
+  setDialog(`<h3>我的设置</h3>
+    <p class="muted" style="margin:0 0 6px;font-size:13px">点餐时自动用这些设置，不用每次都选；只保存在你这台电脑上。</p>
+    <section class="set"><h4>点餐方式</h4>${seg("mode", raw.mode === "delivery" ? "delivery" : "pickup", [["pickup", "🏪 到店自取"], ["delivery", "🛵 外送"]])}</section>
+    <section class="set"><h4>到店门店</h4>
+      <p class="now">${raw.store ? "现在：" + esc(raw.store.name) : "还没选，第一次点餐时会用你上次去过的店"}</p>
+      <div class="inline"><input id="sCity" placeholder="城市，如 上海" value="${esc(raw.city || "")}"><input id="sNear" placeholder="附近的地点，如 人民广场"><button class="btn ghost" id="sStore">找最近的店</button></div>
+    </section>
+    <section class="set" id="setAddr"><h4>收货地址</h4>
+      ${addrs.length ? `<div class="addr-list" role="radiogroup" aria-label="默认收货地址">${addrs.map((x) => `
+        <button class="addr" role="radio" aria-checked="${String(x.address_id) === String(raw.address_id)}" data-aid="${esc(x.address_id)}">
+          <span class="dot"></span><span><b>${esc(x.address)}</b><small>${esc(x.contact || "")} ${esc(x.phone || "")}</small></span>
+          ${String(x.address_id) === String(raw.address_id) ? `<span class="chip gold">默认</span>` : ""}</button>`).join("")}</div>`
+        : `<p class="now">还没有收货地址，外送前先加一个。</p>`}
+      <details ${addrs.length ? "" : "open"} id="addrForm"><summary class="linkish" style="cursor:pointer">＋ 新增收货地址</summary>
+        <form class="form" novalidate>
+          <div><label for="fCity">城市</label><input id="fCity" name="city" placeholder="上海" value="${esc(raw.city || "")}"><div class="hint"></div></div>
+          <div><label for="fName">收货人</label><input id="fName" name="name" placeholder="张先生" autocomplete="name"><div class="hint"></div></div>
+          <div><label for="fGender">称谓</label><select id="fGender" name="gender"><option value="">不填</option><option>先生</option><option>女士</option></select><div class="hint"></div></div>
+          <div><label for="fPhone">手机号</label><input id="fPhone" name="phone" inputmode="numeric" placeholder="13800000000" autocomplete="tel"><div class="hint"></div></div>
+          <div class="full"><label for="fStreet">小区 / 楼宇</label><input id="fStreet" name="street" placeholder="人民大道 200 号" autocomplete="street-address"><div class="hint"></div></div>
+          <div class="full"><label for="fDetail">门牌号</label><input id="fDetail" name="detail" placeholder="3 楼 302"><div class="hint"></div></div>
+          <div class="full" style="display:flex;gap:10px;align-items:center;margin-top:6px"><button class="btn gold" type="submit">保存这个地址</button>
+            <span class="muted" style="font-size:12px">会保存到你的麦当劳账号；同一个地址不会重复添加。</span></div>
+        </form></details>
+    </section>
+    <section class="set"><h4>积分怎么用</h4>
+      <div class="inline">${seg("points", pts, [["auto", "能用就用"], ["off", "点餐不用积分"], ["cap", "每单最多"]])}
+        <input id="sCap" type="number" min="1" step="50" placeholder="1000" value="${typeof raw.points === "number" ? raw.points : ""}" style="max-width:120px"><span class="muted">积分</span></div>
+    </section>
+    <section class="set"><h4>到店取餐</h4>${seg("take", raw.take_way || "", [["", "门店默认"], ["堂食", "堂食"], ["外带", "外带"]])}</section>
+    <div class="actions"><button class="btn" data-close>好了</button></div>`, (dlg) => bindSettings(dlg, addrs));
+  if (focus === "address") { const f = document.getElementById("addrForm"); if (f) { f.open = true; f.scrollIntoView({ block: "center" }); } }
+}
+function bindSettings(dlg, addrs) {
+  const saved = async (args, msg) => {
+    const d = await run(args);
+    toast(d.ok ? msg : d.error);
+    if (d.ok) { await loadStore(); state.menu = null; state.plan = null; }
+    return d;
+  };
+  dlg.querySelectorAll("[data-seg]").forEach((g) => g.querySelectorAll("button").forEach((b) => b.addEventListener("click", async () => {
+    g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    const v = b.dataset.v, kind = g.dataset.seg;
+    if (kind === "mode") {
+      if (v === "delivery" && !addrs.length) { toast("先加一个收货地址"); document.getElementById("addrForm").open = true; }
+      await saved(["config", "mode", v], v === "delivery" ? "以后默认外送" : "以后默认到店自取");
+    } else if (kind === "points") {
+      if (v === "cap") { const n = parseInt($("#sCap", dlg).value, 10); if (!n) { toast("填一下每单最多用多少积分"); $("#sCap", dlg).focus(); return; } await saved(["config", "points", String(n)], `每单最多用 ${n} 积分`); }
+      else await saved(["config", "points", v], v === "off" ? "点餐不用积分" : "积分能用就用");
+    } else if (kind === "take") {
+      if (v) await saved(["config", "take-way", v], "到店默认" + v); else await saved(["config", "reset", "take_way"], "取餐方式交给门店");
+    }
+  })));
+  $("#sCap", dlg).addEventListener("change", (e) => { const n = parseInt(e.target.value, 10); if (n > 0) saved(["config", "points", String(n)], `每单最多用 ${n} 积分`); });
+  $("#sStore", dlg).addEventListener("click", async () => {
+    const city = $("#sCity", dlg).value.trim(), near = $("#sNear", dlg).value.trim();
+    if (!city || !near) return toast("城市和附近的地点都要填");
+    const d = await saved(["config", "store", "-c", city, "-l", near], "找到了，以后默认去这家");
+    if (d.ok) openSettings();
+  });
+  dlg.querySelectorAll("[data-aid]").forEach((b) => b.addEventListener("click", async () => {
+    const d = await saved(["config", "address", b.dataset.aid], "外送默认送到这里");
+    if (d.ok) openSettings();
+  }));
+  const form = dlg.querySelector("form.form");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let ok = true;
+    for (const [key, [test, hint]] of Object.entries(ADDR_RULES)) {
+      const input = form.elements[key], v = input.value.trim(), good = test(v);
+      input.setAttribute("aria-invalid", String(!good));
+      input.parentElement.querySelector(".hint").textContent = good ? "" : hint;
+      ok = ok && good;
+    }
+    if (!ok) return;
+    const f = (k) => form.elements[k].value.trim();
+    const args = ["address", "add", "-c", f("city"), "--name", f("name"), "--phone", f("phone").replace(/[\s-]/g, ""), "--street", f("street"), "--detail", f("detail")];
+    if (f("gender")) args.push("--gender", f("gender"));
+    const d = await saved(args, "地址保存好了，外送默认送到这里");
+    if (d.ok) openSettings();
+  });
 }
 
 /* ---------------------------------------------------------------- dialog */
@@ -1074,7 +1201,7 @@ function setDialog(html, bind) {
   dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeDialog));
   if (bind) bind(dlg);
 }
-function closeDialog() { $("#dlg").close(); }
+function closeDialog() { $("#dlg").close(); $("#dlg").classList.remove("wide"); }
 $("#dlg").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDialog(); });
 
 loadStore();

@@ -96,7 +96,12 @@ class State:
     @property
     def prefs(self) -> Prefs:
         if self._prefs is None:
-            self._prefs = Prefs(persist=not self.demo)
+            if self.demo and os.environ.get("MCD_WEB_DEMO"):
+                # the web demo keeps its own settings file, so trying settings there sticks
+                # between clicks without ever touching the real prefs.json
+                self._prefs = Prefs(name="prefs-demo.json")
+            else:
+                self._prefs = Prefs(persist=not self.demo)
         return self._prefs
 
 
@@ -216,6 +221,39 @@ def same_address(a: dict[str, Any], phone: str, street: str, detail: str) -> boo
 def _set_address(a: dict[str, Any]) -> None:
     state.prefs.set("address_id", str(a.get("addressId")))
     state.prefs.set("address_text", str(a.get("fullAddress") or ""))
+    who = " ".join(x for x in (str(a.get("contactName") or ""), str(a.get("phone") or "")) if x)
+    state.prefs.set("address_contact", who or None)
+
+
+def check_address(city: str, name: str, phone: str, street: str, detail: str, gender: str) -> dict[str, str]:
+    """Validate and tidy a new delivery address; raises McdError with what to fix.
+
+    The server accepts almost anything, but a wrong phone or a vague street means the rider
+    can't find you, so check here before creating it.
+    """
+    squash = lambda t: re.sub(r"\s+", " ", (t or "").strip())  # noqa: E731
+    city, name, street, detail = squash(city), squash(name), squash(street), squash(detail)
+    phone = re.sub(r"[\s-]", "", phone or "")
+    problems = []
+    if not re.fullmatch(r"1[3-9]\d{9}", phone):
+        problems.append("手机号要是 11 位、以 1 开头的数字")
+    if not (1 <= len(name) <= 20) or re.fullmatch(r"\d+", name or "0"):
+        problems.append("收货人写一个称呼就行（1–20 个字，不能全是数字）")
+    if not re.fullmatch(r"[\u4e00-\u9fa5]{2,10}", city.rstrip("市")):
+        problems.append("城市写中文城市名，例如 上海 或 上海市")
+    if not (2 <= len(street) <= 60):
+        problems.append("小区或楼宇写清楚一点（2–60 个字），例如 人民大道 200 号")
+    if not (1 <= len(detail) <= 40):
+        problems.append("门牌号不能空（最多 40 个字），例如 3 楼 302")
+    g = {"男": "先生", "女": "女士", "先生": "先生", "女士": "女士", "": ""}.get((gender or "").strip())
+    if g is None:
+        problems.append("称谓只能是 先生 或 女士（也可以不填）")
+    if problems:
+        raise McdError("地址还差一点：" + "；".join(problems))
+    if not city.endswith(("市", "州", "盟", "地区")):
+        city += "市"
+    return {"city": city, "contactName": name, "phone": phone, "address": street, "addressDetail": detail,
+            **({"gender": g} if g else {})}
 
 
 def _account() -> Account:
@@ -906,19 +944,17 @@ def address_add(
 ) -> None:
     """添加一个收货地址。"""
     def go() -> None:
-        if not re.fullmatch(r"1\d{10}", phone):
-            raise McdError("手机号需要是 11 位数字")
+        args = check_address(city, name, phone, street, detail, gender)
         existing = _rows(ui.call(state.client, "delivery-query-addresses",
                                  summary=lambda d: f"{len(_rows(d, 'addresses'))} 个收货地址"), "addresses")
-        same = next((a for a in existing if same_address(a, phone, street, detail)), None)
+        same = next((a for a in existing if same_address(a, args["phone"], args["address"], args["addressDetail"])), None)
         if same:
             _set_address(same)
             _out(address={"address_id": same.get("addressId"), "address": same.get("fullAddress")}, reused=True)
             ui.say(Text.assemble(("这个地址已经有了，不重复添加，设为默认：", ""), (same.get("fullAddress", ""), "bold")))
             return
-        args = {"city": city, "contactName": name, "phone": phone, "address": street, "addressDetail": detail}
-        if gender:
-            args["gender"] = gender
+        if len(existing) >= 10:
+            raise McdError("已经有 10 个收货地址了，先在麦当劳 App 里删掉不用的再添加")
         d = ui.call(state.client, "delivery-create-address", args,
                     summary=lambda d: f"{(d or {}).get('fullAddress', '')}（ID {(d or {}).get('addressId', '—')}）") or {}
         _out(address={"address_id": d.get("addressId"), "address": d.get("fullAddress")})
@@ -944,7 +980,8 @@ def _config_rows() -> list[tuple[str, str, str, str]]:
         ("mode", "点餐方式", MODE_NAMES.get(p.get("mode") or "pickup", "到店自取"), "mcd config mode pickup|delivery|drive"),
         ("store", "到店门店", store("pickup"), "mcd config store --city 上海 --near 人民广场"),
         ("drive_store", "得来速门店", store("drive"), "mcd config store --drive --city 上海 --near 人民广场"),
-        ("address", "收货地址", p.get("address_text") or (f"ID {p.get('address_id')}" if p.get("address_id") else "—"),
+        ("address", "收货地址", (p.get("address_text") or (f"ID {p.get('address_id')}" if p.get("address_id") else "—"))
+         + (f"（{p.get('address_contact')}）" if p.get("address_contact") else ""),
          "mcd config address [地址ID]"),
         ("city", "城市", p.get("city") or "—", "mcd config city 上海"),
         ("points", "积分", pts_text, "mcd config points auto|off|1000"),
@@ -960,7 +997,11 @@ def config_show(ctx: typer.Context) -> None:
 
     def go() -> None:
         rows = _config_rows()
-        _out(config={k: v for k, _, v, _ in rows}, file=str(prefs_path()))
+        p = state.prefs
+        _out(config={k: v for k, _, v, _ in rows}, file=str(prefs_path()),
+             raw={"mode": p.get("mode") or "pickup", "store": p.get("store_pickup"), "drive_store": p.get("store_drive"),
+                  "address_id": p.get("address_id"), "address": p.get("address_text"), "address_contact": p.get("address_contact"),
+                  "city": p.get("city"), "points": p.get("points"), "take_way": p.get("take_way")})
         ui.say("你的默认设置（点餐时不用再填，命令里的参数优先）：")
         ui.console.print()
         ui.simple_table([("", "left"), ("", "left"), ("修改", "left")],
@@ -1098,7 +1139,7 @@ def config_take_way(way: str = typer.Argument(..., help="堂食 / 外带")) -> N
 def config_reset(key: Optional[str] = typer.Argument(None, help="只清一项：mode / store / drive_store / address / city / points / take_way")) -> None:
     """清空默认设置（不影响 Token 和麦当劳账号里的地址）。"""
     keys = {"mode": ["mode"], "store": ["store_pickup"], "drive_store": ["store_drive"],
-            "address": ["address_id", "address_text"], "city": ["city"], "points": ["points"],
+            "address": ["address_id", "address_text", "address_contact"], "city": ["city"], "points": ["points"],
             "take_way": ["take_way"], "take-way": ["take_way"]}
 
     def go() -> None:
