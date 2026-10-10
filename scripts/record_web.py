@@ -63,7 +63,6 @@ with sync_playwright() as p:
                         record_video_dir=vid, record_video_size={'width': W, 'height': H})
     ctx.add_init_script(CURSOR)
     pg = ctx.new_page()
-    t0 = time.monotonic()                                       # video clock starts with the page
     pg.goto(url)
     pg.mouse.move(*pos)
     pg.wait_for_timeout(2600)                                   # 今日 (skeleton -> content)
@@ -91,23 +90,31 @@ with sync_playwright() as p:
     pg.wait_for_timeout(2400)
     click(pg, '#checkoutBtn', 1600)
     click(pg, 'dialog [data-yes]', 0)
+    t_yes = time.monotonic()
     pg.wait_for_selector('dialog .qr svg', timeout=20000)
-    t_qr = time.monotonic() - t0
-    pg.wait_for_selector('dialog .qr svg', timeout=20000)
+    t_qr = time.monotonic()
     pg.wait_for_timeout(3500)
     pg.mouse.move(pos[0]+40, pos[1]+30, steps=20)
     pg.wait_for_timeout(600)
     path = pg.video.path()
+    t_end = time.monotonic()
     ctx.close(); b.close()
 httpd.shutdown()
 
 # 下单那段“正在下单…”只留 1.5 秒，整体 1.4 倍速，10 fps、900 宽
-cut_to = t_qr - 0.4
-cut_from = max(0.0, cut_to - 5.0)
+# 视频的起点比页面晚一点，所以从结尾倒推时间点
+dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                           capture_output=True, text=True, check=True).stdout)
+cut_from = dur - (t_end - t_yes) + 1.5      # “正在下单…”留 1.5 秒
+cut_to = dur - (t_end - t_qr) - 0.1
 out = ROOT / "docs" / "web-demo.gif"
 graph = (f"[0:v]trim=0:{cut_from:.2f},setpts=PTS-STARTPTS[a];[0:v]trim=start={cut_to:.2f},setpts=PTS-STARTPTS[b];"
          "[a][b]concat=n=2:v=1[c];[c]setpts=PTS/1.4,fps=10,scale=900:-1:flags=lanczos,split[x][y];"
          "[x]palettegen=max_colors=96:stats_mode=full[p];[y][p]paletteuse=dither=none:diff_mode=rectangle")
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-filter_complex", graph, str(out)], check=True)
+keep = os.environ.get("MCD_WEBM_OUT")          # scripts/make_demo.sh 用它拼出顶部的完整演示
+if keep:
+    shutil.copy(path, keep)
+    Path(keep).with_suffix(".cut").write_text(f"{cut_from:.2f} {cut_to:.2f}\n")
 shutil.rmtree(vid, ignore_errors=True)
 print("wrote", out)

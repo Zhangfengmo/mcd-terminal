@@ -1,6 +1,6 @@
 # 录制 docs/demo.gif：  vhs scripts/demo.tape
 # 需要 vhs（https://github.com/charmbracelet/vhs）和 Noto Sans Mono CJK 字体，且 mcd 已安装在 PATH 中。
-# 网页版的录屏见 scripts/record_web.py（输出 docs/web-demo.gif）。
+# 一条命令重录全部演示（终端 + 网页版拼在一起）：scripts/make_demo.sh
 Output docs/demo.gif
 
 Set Shell "bash"
@@ -54,13 +54,11 @@ Sleep 700ms
 Enter
 Sleep 7s
 
-# 同一个引擎的网页版
+# 同一个引擎的网页版：敲 mcd w，浏览器就打开了（后半段画面见 scripts/record_web.py）
 Type "clear"
 Enter
 Sleep 300ms
 Type "mcd --demo w"
 Sleep 400ms
 Enter
-Sleep 4s
-Ctrl+C
-Sleep 2s
+Sleep 2.5s
