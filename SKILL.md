@@ -30,7 +30,7 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 ## 三条规则
 
 1. **永远加 `--json`**：`mcd --json <命令>`，stdout 只有一个 JSON 对象。先看 `ok`；为 `false` 时把 `error` 用自己的话告诉用户。
-2. **不经用户同意，绝不加 `--yes`**。`order`、`spend`、`buy`、`claim`、`cancel` 会扣积分、领券、创建或取消订单。不加 `--yes` 时只返回方案，并标记 `"status": "needs_confirmation"`。你要把方案讲给用户听（买什么、每样怎么付、用多少积分、实付多少），用户明确同意后，再执行返回值里的 `confirm_with` 命令（即原命令加 `--yes`）。积分扣除不可撤销。
+2. **不经用户同意，绝不加 `--yes`**。`order`、`spend`、`buy`、`claim`、`cancel`、`draw`、`party --book` 会扣积分、领券、抽奖、创建或取消订单、预约派对。不加 `--yes` 时只返回方案，并标记 `"status": "needs_confirmation"`。你要把方案讲给用户听（买什么、每样怎么付、用多少积分、实付多少），用户明确同意后，再执行返回值里的 `confirm_with` 命令（即原命令加 `--yes`）。积分扣除不可撤销。
 3. **你不能替用户付款**。下单成功后会返回 `order.pay_url`，把链接交给用户自己打开支付。
 
 ## 常见任务
@@ -54,8 +54,12 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “刚才那单不要了” | `mcd --json cancel [订单号]` → 确认是哪一单 → 同意后 `confirm_with` |
 | “我的默认门店/地址是什么” | `mcd --json config` |
 | “以后都送到家” / “默认去人民广场那家” | `mcd --json config mode delivery` / `mcd --json config store --city 上海 --near 人民广场` |
-| “积分抽奖有什么奖品”“我抽中了什么” | `mcd --json prizes`（只查看，不会抽奖） |
-| “有什么派对/亲子活动”“生日派对哪天能约” | `mcd --json events`，再 `mcd --json party <名字> --city <城市>`（只查场次，预订让用户在 App 里完成） |
+| “积分抽奖有什么奖品”“我抽中了什么” | `mcd --json prizes` |
+| “帮我抽一次奖” | `mcd --json draw` → 把 `cost`（本次扣多少次数/积分，`lottery.then` 不为空时说明次数用完后改扣积分）告诉用户 → 用户明确说“抽”后执行 `confirm_with`；一次只抽一次，不要试抽、连抽；“试试看”“能抽就抽”不算确认 |
+| “有什么派对/亲子活动”“生日派对哪天能约” | `mcd --json events`，再 `mcd --json party <名字> --city <城市>` |
+| “帮我约周六上午的生日派对” | `mcd --json party <名字> --city <城市> --book`：`status` 为 `choose_session` 时让用户选场次再加 `--date --time`；`choose_type` 时问包场还是拼团再加 `--type`；人数用 `--count`；`needs_confirmation` 时讲清楚门店、时间、方式、人数、价格，同意后 `confirm_with`，把 `order.pay_url` 给用户付款 |
+| “问卷送的券呢”“上次填的问卷有券吗” | `mcd --json survey [订单号]` |
+| “给公司订团餐，看看怎么凑满减” | `mcd --json order <餐品> --group`，看 `group_promotions`：`applied` 是已享受的一档，`next.add_yuan` 是再加多少到下一档、`next.fill_with` 是刚好够的一样 |
 | “券快过期了提醒我”“这个活动开始时提醒我” | `mcd --json remind coupons` / `remind campaign -t <活动名>` → 讲清楚加什么提醒 → 同意后 `confirm_with` |
 | “给我一个网页看看” | 让用户自己运行 `mcd web`（打开浏览器的图形界面，agent 不需要调用它） |
 | “最近有什么活动” | `mcd --json calendar` |

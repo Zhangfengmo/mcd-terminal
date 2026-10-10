@@ -22,7 +22,7 @@ from .content import (
 from .demo import DemoClient
 from .order import Unit, parse_menu, parse_wants, plan_order, price_from_menu, suggest_extras
 from .ordering import (
-    NotOnMenu, checkout, fmt_distance, load_menu, mall_options, owned_coupons, pick_scene, quote,
+    NotOnMenu, checkout, fmt_distance, group_promotions, load_menu, mall_options, owned_coupons, pick_scene, quote,
     related_campaigns, remember_order, resolve_units, scene_line,
 )
 from . import __version__
@@ -77,6 +77,7 @@ REQUIRED_TOOLS = [
     "query-meals", "query-meal-detail", "query-store-coupons", "calculate-price", "create-order",
     "query-order", "order-list", "cancel-order", "list-nutrition-foods", "query-lottery-info", "query-my-prizes",
     "query-party-city", "query-party-store", "query-party-store-date", "query-party-store-session",
+    "party-order-create", "draw-lottery", "query-promotions", "query-survey-coupon",
 ]
 
 
@@ -622,6 +623,7 @@ def order(
             if scene.mode in ("delivery", "group"):
                 mall = [m for m in mall if not m.in_store_only]  # 到店专用 coupons can't be used for delivery
         campaigns = related_campaigns(c, menu, units)
+        promos = group_promotions(c, scene)
 
         def build(us: list) -> tuple[Any, list, Any]:
             p = plan_order(us, owned, mall, budget)
@@ -631,6 +633,7 @@ def order(
         plan, extras, _ = build(units)
         kcal = _kcal([u.menu.name for u in units])
         show_plan(scene, plan, kcal, campaigns)
+        _promo_tips(promos, plan, menu)
         q = quote(c, scene, plan)
         ui.quote_line(q, plan.pay_fen)
         _out_order(scene, plan, kcal, campaigns, q, extras, budget)
@@ -654,6 +657,7 @@ def order(
                 ui.step("顺便带上？", Text.assemble(("带上了 ", ui.DIM), ("、".join(x.menu.name for x in chosen), ui.GREEN),
                                                   ("，重新算了一遍：", ui.DIM)))
                 show_plan(scene, plan, kcal, [])
+                _promo_tips(promos, plan, menu)
                 q = quote(c, scene, plan)
                 ui.quote_line(q, plan.pay_fen)
                 _out_order(scene, plan, kcal, campaigns, q, extras, budget)
@@ -708,6 +712,32 @@ def _not_on_menu(e: "NotOnMenu") -> None:
     if retry and not state.json:
         ui.next_steps([retry], "换成店里有的再算一次")
     raise ui.ShownError(str(e))
+
+
+def _promo_tips(promos: list, plan: Any, menu: list) -> None:
+    """团餐满减满折：这单享受哪一档、再加多少能到下一档。金额以核价为准。"""
+    if not promos:
+        return
+    from .promos import promo_status
+    lines = [(ch.unit.menu.code, ch.pay_fen) for ch in plan.choices if ch.kind not in ("coupon", "points")]
+    st = promo_status(promos, lines)
+    a, n = st["applied"], st["next"]
+    fill = None
+    if n:   # 凑单：最便宜的、价格够补上差额的一样
+        fits = sorted((m for m in menu if m.price_fen and m.price_fen >= n["gap_fen"]), key=lambda m: m.price_fen)
+        fill = fits[0] if fits else None
+    _out(group_promotions={
+        "rules": [p.text for p in promos],
+        "applied": {"rule": a["rule"], "saving_yuan": agent.yuan(a["saving_fen"])} if a else None,
+        "next": {"rule": n["rule"], "add_yuan": agent.yuan(n["gap_fen"]), "extra_saving_yuan": agent.yuan(n["extra_saving_fen"]),
+                 "fill_with": fill.name if fill else None} if n else None,
+        "note": "现金部分参与满减满折，积分兑换和用券的餐品不算；以核价为准"})
+    if a:
+        ui.tip(Text.assemble(("团餐优惠 ", ui.ACCENT), (f"{a['rule']}，这单能省 ", ""), (ui.yuan(a["saving_fen"]), f"bold {ui.GREEN}")))
+    if n:
+        ui.tip(Text.assemble(("再加 ", ""), (ui.yuan(n["gap_fen"]), f"bold {ui.AMBER}"), (f" 就能{n['rule']}，", ""),
+                             (f"再多省 {ui.yuan(n['extra_saving_fen'])}", ui.GREEN),
+                             (f"（加一份{fill.name} {ui.yuan(fill.price_fen)} 就够）" if fill else "", ui.DIM)))
 
 
 def show_plan(scene: Any, plan: Any, kcal: int, campaigns: list) -> None:
@@ -1231,7 +1261,86 @@ def orders(size: int = typer.Option(10, help="显示最近多少笔。")) -> Non
               ui.faint(str(o.get("orderId", "")))] for o in rows])
         ui.console.print()
         ui.tip(Text.assemble(("看某一单的进度：", ""), ui.cmd("mcd track <订单号>")))
+        ui.tip(Text.assemble(("吃完填过满意度问卷？看看送了什么券：", ""), ui.cmd("mcd survey")))
     _run("orders", go)
+
+
+SATISFACTION = {5: "非常满意", 4: "满意", 3: "一般", 2: "不满意", 1: "很不满意"}
+
+
+def _survey(d: Any, oid: str) -> dict[str, Any] | None:
+    if not isinstance(d, dict):
+        return None
+    sat = d.get("overall_satisfaction")
+    way = {"1": "到店/自取", "2": "外送"}.get(str(d.get("coupon_order_food_types") or ""), None)
+    title = d.get("coupon_title") or None
+    status = d.get("coupon_redeem_status") or None
+    return {"order_id": str(d.get("trade_no") or oid), "answered_at": d.get("finish_time") or None,
+            "satisfaction": d.get("satisfaction_description") or (SATISFACTION.get(sat) if isinstance(sat, int) else None),
+            "coupon": title, "coupon_status": status, "coupon_for": way,
+            "coupon_left": d.get("coupon_available_redeem_count"),
+            "valid_from": d.get("coupon_trade_start_time") or None, "valid_to": d.get("coupon_trade_end_time") or None,
+            "usable": bool(title) and status != "已核销"}
+
+
+def _survey_line(s: dict[str, Any] | None, oid: str) -> str:
+    if not s or not s["coupon"]:
+        return f"订单 …{oid[-6:]}：填过问卷，没有奖券"
+    return f"订单 …{oid[-6:]}：{s['coupon']}" + (f"（{s['coupon_status']}）" if s["coupon_status"] else "")
+
+
+def _surveys(order_ids: list[str]) -> list[dict[str, Any]]:
+    out = []
+    for oid in order_ids:
+        with ui.thinking():
+            try:
+                d = state.client.call("query-survey-coupon", {"orderId": oid})
+            except McdError:
+                d = None   # 这单没填过问卷：服务端会说“无匹配的答卷”
+        ui.tool_line("query-survey-coupon")
+        if d is None:
+            ui.result(Text(f"订单 …{oid[-6:]}：没有问卷记录", style=ui.DIM))
+            continue
+        ui.result(_survey_line(_survey(d, oid), oid))
+        s = _survey(d, oid)
+        if s:
+            out.append(s)
+    return out
+
+
+@app.command()
+def survey(
+    order_id: Optional[str] = typer.Argument(None, help="订单号；不填就查最近几笔已完成的订单。"),
+    size: int = typer.Option(5, "--size", help="不填订单号时，查最近几笔。"),
+) -> None:
+    """问卷奖券：吃完填的满意度问卷送了什么券、什么时候到期、用没用过。"""
+    def go() -> None:
+        if order_id:
+            ids = [order_id]
+        else:
+            rows = _rows(ui.call(state.client, "order-list", summary=lambda d: f"最近 {len(_rows(d))} 笔订单"))
+            ids = [str(o["orderId"]) for o in rows if o.get("orderId") and "完成" in str(o.get("orderStatus", ""))][:max(size, 1)]
+            if not ids:
+                _out(surveys=[])
+                ui.say("最近没有已完成的订单。吃完记得填问卷，常常会送券 🎟")
+                return
+        found = _surveys(ids)
+        _out(surveys=found)
+        if not found:
+            ui.say("这些订单都没有问卷记录。下次吃完留意小票或 App 里的满意度问卷，填完一般会送券。")
+            return
+        usable = [x for x in found if x["usable"]]
+        ui.say(f"找到 {len(found)} 份问卷" + (f"，其中 {len(usable)} 张奖券还能用" if usable else "，奖券都用过了"))
+        ui.console.print()
+        ui.simple_table([("订单", "left"), ("你的评价", "left"), ("奖券", "left"), ("状态", "left"), ("有效期至", "left")],
+                        [[ui.faint(x["order_id"][-8:]), x["satisfaction"] or "—", x["coupon"] or ui.dim("没有奖券"),
+                          Text(x["coupon_status"] or "", style=ui.GREEN if x["usable"] else ui.DIM),
+                          ui.dim(str(x["valid_to"] or "")[:10] + (f" · {x['coupon_for']}" if x["coupon_for"] else ""))]
+                         for x in found])
+        if usable:
+            ui.console.print()
+            ui.tip("问卷奖券在你的券包里，点餐时 mcd 会把能用的券一起算进最省方案：mcd order …")
+    _run("survey", go)
 
 
 CANCEL_REASONS = {"1": "改主意了", "2": "重复下单", "3": "点错了/点多了/点少了",
@@ -1279,6 +1388,8 @@ def _lottery(d: Any) -> dict[str, Any] | None:
             "rule": d.get("drawTypeText"), "chances_left": d.get("availableTimes"),
             "eligible": (d.get("drawDecision") or {}).get("resourceEligible"),
             "next_cost": nxt.get("text") or None, "reason": (d.get("drawDecision") or {}).get("reason"),
+            "next_points": nxt.get("points"), "next_chances": nxt.get("chances"),
+            "then": (((d.get("drawDecision") or {}).get("fallbackConsumption") or {}).get("text")) or None,
             "prizes": [{"name": x.get("name"), "image": x.get("imageUrl") or None, "type": x.get("typeText")}
                        for x in d.get("prizes") or []]}
 
@@ -1306,12 +1417,14 @@ def events() -> None:
         if not items:
             ui.say("现在没有可以报名的派对或体验活动。")
             return
-        ui.say(f"有 {len(items)} 个派对和体验活动可以报名（在麦当劳 App 里预订）：")
+        ui.say(f"有 {len(items)} 个派对和体验活动可以报名：")
         ui.console.print()
         ui.simple_table([("活动", "left"), ("类型", "left"), ("价格", "right"), ("截止", "left")],
                         [[i["name"] or "", ui.dim(i["category"] or ""),
                           f"¥{i['price_yuan']:g}" if i["price_yuan"] is not None else "—", ui.faint(i["until"] or "")]
                          for i in items])
+        ui.console.print()
+        ui.tip(Text.assemble(("看场次、预约：", ""), ui.cmd(f"mcd party {_q(str(items[0]['name'] or ''))[:12]} --book")))
     _run("events", go)
 
 
@@ -1389,7 +1502,7 @@ def remind(
             if not (title and day):
                 raise McdError("派对提醒需要名字和日期：mcd remind party --title 派对名 --date YYYY-MM-DD --at 14:00")
             items.append(Reminder(f"🎈 {title}", _remind_at(datetime.strptime(day, "%Y-%m-%d").date(), at, now),
-                                  "在麦当劳 App 里预订或签到"))
+                                  "还没约的话：mcd party <名字> --book；约好了记得准时到店签到"))
         else:
             raise McdError("要提醒什么？coupons、points、campaign 或 party")
 
@@ -1432,14 +1545,43 @@ def _party_match(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None
     return next((r for r in evs if name in str(r.get("spuName", ""))), None)
 
 
+PARTY_TYPES = {1: "包场", 2: "拼团"}
+
+
+def _party_type(value: str | None) -> int | None:
+    if value is None:
+        return None
+    v = value.strip()
+    if v in ("1", "包场"):
+        return 1
+    if v in ("2", "拼团"):
+        return 2
+    raise McdError("--type 只能是 包场 或 拼团")
+
+
+def _fen_of(v: Any) -> int | None:
+    if isinstance(v, int):
+        return v
+    try:
+        return round(float(str(v)) * 100)
+    except (TypeError, ValueError):
+        return None
+
+
 @app.command()
 def party(
     name: str = typer.Argument(..., help="派对或体验活动的名字（写一部分就行）或 spuId，见 mcd events。"),
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市，默认用 mcd config 里的城市。"),
     pick: int = typer.Option(1, "--pick", help="选第几家门店（默认最近的）。"),
     dates: int = typer.Option(3, "--dates", help="看最近几天的场次。"),
+    book: bool = typer.Option(False, "--book", "-b", help="预约一个场次：选好后下单，扫码付款。"),
+    day: Optional[str] = typer.Option(None, "--date", help="预约哪天，YYYY-MM-DD。"),
+    at: Optional[str] = typer.Option(None, "--time", help="预约哪个场次，写开始时间，例如 10:30。"),
+    count: Optional[int] = typer.Option(None, "--count", help="参加人数。"),
+    kind: Optional[str] = typer.Option(None, "--type", help="包场 或 拼团（活动两种都支持时需要选）。"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过确认。"),
 ) -> None:
-    """派对场次：哪个城市、哪家店、哪天几点还能约（只查看，预订请在麦当劳 App 里完成）。"""
+    """派对场次：哪个城市、哪家店、哪天几点还能约；加 --book 直接预约，扫码付款。"""
     def go() -> None:
         c = state.client
         rows = _rows(ui.call(c, "mall-points-products", summary=lambda d: f"积分商城共 {len(_rows(d))} 个商品"))
@@ -1462,38 +1604,126 @@ def party(
         st = stores[min(max(pick, 1), len(stores)) - 1]
         ds = _rows(ui.call(c, "query-party-store-date", {"storeCode": str(st.get("code")), "spuId": spu},
                            summary=lambda d: f"{st.get('name')} 有 {len(_rows(d))} 天可以约"))
-        out_days = []
+        if day:
+            ds = [d for d in ds if str(d.get("date")) == day] or ds[:0]
+            if not ds:
+                raise McdError(f"{st.get('name')} {day} 这天约不了，去掉 --date 看看有哪些日子")
+        out_days, raw = [], []
         for d in ds[:max(dates, 1)]:
             sessions = _rows(ui.call(c, "query-party-store-session",
                                      {"storeCode": str(st.get("code")), "spuId": spu, "dateStr": d.get("date")},
-                                     summary=lambda x: f"{d.get('date')}：{len(_rows(x))} 个场次"))
+                                     summary=lambda x, d=d: f"{d.get('date')}：{len(_rows(x))} 个场次"))
+            raw += [(str(d.get("date")), x) for x in sessions]
             out_days.append({"date": d.get("date"), "sessions": [
                 {"start": x.get("timeStart"), "end": x.get("timeEnd"), "left": x.get("leftNum"),
                  "min": x.get("partyMin"), "max": x.get("partyMax"),
                  "price_yuan": agent.yuan(x.get("price")) if isinstance(x.get("price"), int) else x.get("price")}
                 for x in sessions]})
-        _out(status="listed", event=ev.get("spuName"), spu_id=spu, city=ct.get("name"),
-             store={"name": st.get("name"), "code": st.get("code"), "address": st.get("address"),
-                    "distance": st.get("distanceText") or st.get("distance")},
+        store_out = {"name": st.get("name"), "code": st.get("code"), "address": st.get("address"),
+                     "distance": st.get("distanceText") or st.get("distance")}
+        _out(status="listed", event=ev.get("spuName"), spu_id=spu, city=ct.get("name"), store=store_out,
              other_stores=[x.get("name") for x in stores[:6] if x is not st], days=out_days,
-             note="预订请在麦当劳 App 里完成；可以用 mcd remind party 设个提醒")
-        ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
-        ui.console.print()
-        rows_ = []
-        for d in out_days:
-            for x in d["sessions"] or [{"start": "—", "end": "", "left": 0}]:
-                rows_.append([d["date"] or "", f"{x.get('start') or ''}–{x.get('end') or ''}",
-                              Text(f"余 {x.get('left')}", style=ui.GREEN if (x.get("left") or 0) > 0 else ui.DIM),
-                              f"¥{x['price_yuan']:g}" if isinstance(x.get("price_yuan"), (int, float)) else ""])
-        ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("价格", "right")], rows_)
-        ui.console.print()
-        ui.tip("预订请在麦当劳 App 里完成；想要提醒：mcd remind party --title 名字 --date 日期 --at 时间")
+             note="想预约：加 --book（可配 --date --time --count），确认后下单、扫码付款")
+        if not book:
+            ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
+            ui.console.print()
+            rows_ = []
+            for d in out_days:
+                for x in d["sessions"] or [{"start": "—", "end": "", "left": 0}]:
+                    rows_.append([d["date"] or "", f"{x.get('start') or ''}–{x.get('end') or ''}",
+                                  Text(f"余 {x.get('left')}", style=ui.GREEN if (x.get("left") or 0) > 0 else ui.DIM),
+                                  f"¥{x['price_yuan']:g}" if isinstance(x.get("price_yuan"), (int, float)) else ""])
+            ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("价格", "right")], rows_)
+            ui.console.print()
+            ui.tip(Text.assemble(("想预约：", ""), ui.cmd(_again(add="--book") or f"mcd party {name} --book"),
+                                 ("（会一步步选场次和人数，确认后才下单）", ui.DIM)))
+            return
+        _book_party(ev, spu, ct, st, raw, at, count, kind, yes)
     _run("party", go)
+
+
+def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, Any],
+                raw: list[tuple[str, dict[str, Any]]], at: str | None, count: int | None,
+                kind: str | None, yes: bool) -> None:
+    """party-order-create：城市 → 门店 → 日期 → 场次 → 类型和人数 → 确认 → 下单付款。"""
+    c = state.client
+    open_ = [(d, x) for d, x in raw if (x.get("leftNum") or 0) > 0]
+    if at:
+        open_ = [(d, x) for d, x in open_ if str(x.get("timeStart", "")).startswith(at)]
+    if not open_:
+        _out(status="no_session")
+        raise McdError("这几天的场次都约满了，换一天（--date）或换一家店（--pick 2）试试")
+    label = lambda d, x: f"{d} {x.get('timeStart')}–{x.get('timeEnd')}（余 {x.get('leftNum')}）"
+    if len(open_) > 1 and not at:
+        if state.json or yes:
+            _out(status="choose_session", sessions=[{"date": d, "time": x.get("timeStart"), "left": x.get("leftNum")}
+                                                    for d, x in open_],
+                 note="用 --date 和 --time 指定一个场次再预约")
+            ui.say("有几个场次可以约，用 --date 和 --time 选一个")
+            return
+        i = ui.select("选个场次", [], "哪一场？", [label(d, x) for d, x in open_[:6]] + ["先不约"])
+        if i is None or i >= min(len(open_), 6):
+            _out(status="cancelled")
+            return
+        open_ = [open_[i]]
+    d, x = open_[0]
+    detail = ui.call(c, "mall-product-detail", {"spuId": spu},
+                     summary=lambda r: str((r or {}).get("spuName") or ev.get("spuName"))) or {}
+    if str(detail.get("shopId", "5")) != "5":
+        raise McdError("这个活动不支持在线预约，请在麦当劳 App 里报名")
+    sku = (detail.get("skuList") or [{}])[0]
+    fixed = detail.get("partyType", sku.get("partyType"))
+    fixed = int(fixed) if str(fixed).lstrip("-").isdigit() else -1
+    ptype = fixed if fixed in (1, 2) else _party_type(kind)
+    if ptype is None:
+        if state.json or yes:
+            _out(status="choose_type", options=["包场", "拼团"], note="这个活动包场、拼团都可以，用 --type 选一个")
+            ui.say("包场还是拼团？用 --type 包场 或 --type 拼团")
+            return
+        j = ui.select("包场还是拼团？", ["包场：整场只有你们", "拼团：和其他家庭一起参加"], "选哪种？", ["包场", "拼团", "先不约"])
+        if j is None or j == 2:
+            _out(status="cancelled")
+            return
+        ptype = j + 1
+    elif kind and _party_type(kind) != fixed and fixed in (1, 2):
+        raise McdError(f"这个活动只能{PARTY_TYPES[fixed]}")
+    lo, hi, left = x.get("partyMin"), x.get("partyMax"), x.get("leftNum")
+    n = count or (lo if ptype == 1 and lo else 1)
+    if n < 1 or (hi and n > hi) or (ptype == 2 and left and n > left):
+        raise McdError(f"人数不对：这一场 {lo or 1}–{hi or '不限'} 人" + (f"，还剩 {left} 个位置" if ptype == 2 and left else ""))
+    price = _fen_of(x.get("price"))
+    summary_ = {"event": ev.get("spuName"), "store": st.get("name"), "date": d, "time": f"{x.get('timeStart')}–{x.get('timeEnd')}",
+                "type": PARTY_TYPES[ptype], "count": n, "price_yuan": agent.yuan(price) if price is not None else None}
+    _out(status="planned", booking=summary_)
+    details = [Text.assemble((str(ev.get("spuName")), "bold")),
+               f"{ct.get('name')} {st.get('name')}",
+               Text.assemble((f"{d}  {x.get('timeStart')}–{x.get('timeEnd')}", f"bold {ui.ACCENT}")),
+               f"{PARTY_TYPES[ptype]} · {n} 人",
+               Text("场次价格 " + (ui.yuan(price) if price is not None else "以下单页为准") + "，下一步扫码付款；退改以活动规则为准", style=ui.DIM)]
+    if not _gate(yes, lambda: ui.ask("预约派对", details, "就约这一场吗？", ("好，预约", "先不约"))):
+        return
+    args = {"spuId": spu, "skuId": sku.get("skuId"), "partyType": ptype, "code": str(ct.get("code")),
+            "storeCode": str(st.get("code")), "dateStr": d, "id": x.get("id"), "timeStart": x.get("timeStart"),
+            "timeEnd": x.get("timeEnd"), "leftNum": left, "count": n,
+            "partyTimeInfo": {k: x.get(k) for k in ("id", "leftNum", "partyMax", "partyMin", "price", "timeStart", "timeEnd")}}
+    r = ui.call(c, "party-order-create", args,
+                summary=lambda r: f"订单 {(r or {}).get('orderId', '')} · 待支付") or {}
+    url = r.get("payH5Url") or ""
+    amount = _fen_of(r.get("amount")) if r.get("amount") not in (None, "") else price
+    _out(status="booked", booking=summary_, order={"order_id": r.get("orderId"), "pay_url": url or None,
+                                                   "pay_yuan": agent.yuan(amount) if amount is not None else None,
+                                                   "next": "把 pay_url 发给用户，由用户自己打开付款"})
+    if url:
+        ui.pay_link(url, amount)
+    else:
+        ui.say("预约已提交，付款请在麦当劳 App 的订单里完成。")
+    ui.console.print()
+    ui.tip(Text.assemble(("别忘了那天：", ""), ui.cmd(f"mcd remind party --title {_q(str(ev.get('spuName')))} --date {d} --at {x.get('timeStart')}")))
 
 
 @app.command()
 def prizes() -> None:
-    """奖品：积分抽奖在送什么、我抽中过什么（只查看，不会抽奖）。"""
+    """奖品：积分抽奖在送什么、我抽中过什么（抽奖用 mcd draw，会先确认）。"""
     def go() -> None:
         c = state.client
         try:
@@ -1526,7 +1756,57 @@ def prizes() -> None:
                               ui.dim(str(p["won_at"] or "")[:10]), ui.faint(p["remind"] or "")] for p in mine])
         else:
             ui.tip("还没有抽中过奖品")
+        if lot and lot["eligible"] is not False:
+            ui.tip(Text.assemble(("想抽一次：", ""), ui.cmd("mcd draw"), ("（会先告诉你这次扣多少，确认后才抽）", ui.DIM)))
     _run("prizes", go)
+
+
+@app.command()
+def draw(yes: bool = typer.Option(False, "--yes", "-y", help="已经看过本次消耗并确认，直接抽。")) -> None:
+    """积分抽奖：先告诉你这次会扣多少次数或积分，你确认后只抽一次（不会自动连抽）。"""
+    def go() -> None:
+        c = state.client
+        lot = _lottery(ui.call(c, "query-lottery-info",
+                               summary=lambda d: str((d or {}).get("activityName") or "暂无抽奖活动")))
+        if not lot:
+            raise McdError("现在没有积分抽奖活动")
+        _out(lottery=lot)
+        if lot["eligible"] is False:
+            _out(status="not_eligible")
+            raise McdError(lot["reason"] or "这次不能抽：次数或积分不够")
+        cost = lot["next_cost"] or (f"消耗 {lot['draw_points']} 积分" if lot["draw_points"] else "按活动规则消耗")
+        details: list[Any] = [Text.assemble(("活动 ", ui.DIM), (lot["name"] or "", "bold")),
+                              Text.assemble(("" if cost.startswith("本次") else "本次 ", ui.DIM), (cost, f"bold {ui.AMBER}"))]
+        if lot["then"]:
+            details.append(Text(f"本次优先消耗次数；次数用完后将改为{lot['then']}", style=ui.DIM))
+        if lot["prizes"]:
+            details.append(Text("奖池：" + "、".join(p["name"] or "" for p in lot["prizes"][:5]), style=ui.DIM))
+        _out(status="planned", cost=cost)
+        if not _gate(yes, lambda: ui.ask("积分抽奖", details, "确定抽一次吗？", ("抽一次", "先不抽"))):
+            return
+        r = ui.call(c, "draw-lottery", summary=lambda r: "抽中了！" if (r or {}).get("win") else
+                    ((r or {}).get("status") or {}).get("message") or "这次没中") or {}
+        st = r.get("status") or {}
+        if st.get("code") and str(st.get("code")).upper() != "SUCCESS":
+            _out(status="failed", message=st.get("message"))
+            raise McdError(str(st.get("message") or "抽奖没有成功"))
+        won = [{"name": x.get("name"), "image": x.get("imageUrl") or None, "type": x.get("typeText"),
+                "valid": x.get("validDateInfo")} for x in r.get("prizes") or []]
+        _out(status="drawn", win=bool(r.get("win")), won=won, consumed_points=r.get("consumePoint"),
+             points_left=r.get("remainPoint"), chances_left=r.get("remainChance"))
+        if r.get("win") and won:
+            ui.say(Text.assemble(("🎉 抽中了 ", ""), ("、".join(w["name"] or "" for w in won), f"bold {ui.GREEN}")))
+            for w in won:
+                if w["valid"]:
+                    ui.tip(f"{w['name']}：{w['valid']}")
+            ui.tip(Text.assemble(("奖品在这里：", ""), ui.cmd("mcd prizes")))
+        else:
+            ui.say("这次没中，下次好运 🍀")
+        left = [f"剩余积分 {r['remainPoint']}" if r.get("remainPoint") not in (None, "") else "",
+                f"剩余次数 {r['remainChance']}" if r.get("remainChance") is not None else ""]
+        if any(left):
+            ui.tip("，".join(x for x in left if x))
+    _run("draw", go)
 
 
 @app.command()

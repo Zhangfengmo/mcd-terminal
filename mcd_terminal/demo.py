@@ -68,6 +68,8 @@ class DemoClient:
         self.available = 1880
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self._orders = 0
+        self._draws = 0
+        self._won: list[dict[str, Any]] = []
         # couponId -> store coupon (title, code, {productCode: (productName, couponPrice)})
         self._store_coupons: dict[str, tuple[str, str, dict[str, tuple[str, str]]]] = {
             "OWN-NUGGETS": ("11.9元麦乐鸡", "MCDD11NUGGETS", {"C920400": ("麦乐鸡 5 块", "11.9")}),
@@ -94,7 +96,7 @@ class DemoClient:
         """Every tool this demo answers, named like the live server's tools."""
         return sorted(n[1:].replace("_", "-") for n in dir(self)
                       if n.startswith("_") and not n.startswith("__") and callable(getattr(self, n))
-                      and n not in ("_price_items", "_mall_physical"))
+                      and n not in ("_price_items", "_mall_physical", "_group_saving", "_party_detail"))
 
     def close(self) -> None:
         pass
@@ -159,7 +161,15 @@ class DemoClient:
              "catName": "到店专用", "status": 2, "price": "0"},
         ]
 
+    def _party_detail(self, spu: int) -> dict[str, Any]:
+        name, price, ptype = {701: ("生日派对（演示数据）", "58", -1), 702: ("小小厨师体验营（演示数据）", "72", 2)}[spu]
+        return {"spuName": name, "spuId": spu, "images": [], "shopId": 5, "partyType": ptype,
+                "note": "活动开始前 24 小时可免费取消（演示）", "detail": "",
+                "skuList": [{"skuId": 20000 + spu, "points": "0", "price": price, "specList": []}], "spuCategory": "1"}
+
     def _mall_product_detail(self, spuId: int) -> dict[str, Any]:
+        if int(spuId) in (701, 702):
+            return self._party_detail(int(spuId))
         if int(spuId) not in _PRODUCTS:
             raise McdError("商品已下架")
         name, pts, price, cat = _PRODUCTS[int(spuId)]
@@ -265,9 +275,11 @@ class DemoClient:
             total += sub
         return rows, original, total
 
-    def _calculate_price(self, items: list[dict[str, Any]], beType: int = 1, **_: Any) -> dict[str, Any]:
+    def _calculate_price(self, items: list[dict[str, Any]], beType: int = 1, storeCode: str = "", **_: Any) -> dict[str, Any]:
         rows, original, total = self._price_items(items)
-        delivery = 600 if int(beType) == 2 else 0
+        if int(beType) == 6:   # 企业团餐：满减 / 满折，取最优一条
+            total -= self._group_saving(rows, storeCode)
+        delivery = 600 if int(beType) in (2, 6) else 0
         return {
             "productOriginalPrice": original, "productPrice": total,
             "deliveryOriginalPrice": delivery, "deliveryPrice": delivery,
@@ -279,7 +291,7 @@ class DemoClient:
         }
 
     def _create_order(self, items: list[dict[str, Any]], storeCode: str = "", beType: int = 1, **_: Any) -> dict[str, Any]:
-        price = self._calculate_price(items, beType=beType)
+        price = self._calculate_price(items, beType=beType, storeCode=storeCode)
         for it in items:  # coupons are consumed by the order
             self._store_coupons.pop(str(it.get("couponId", "")), None)
         self._orders += 1
@@ -306,6 +318,17 @@ class DemoClient:
              "beType": "1", "orderType": "1", "realTotalAmount": amt,
              "orderProductList": [{"productName": n, "quantity": q} for n, q in items]}
             for oid, st, day, items, amt in rows]}
+
+    def _query_survey_coupon(self, orderId: str) -> dict[str, Any]:
+        if not str(orderId).endswith("0000"):
+            raise McdError("无匹配的答卷")
+        t = self.today
+        return {"trade_no": str(orderId), "survey_id": "0002", "status": 1,
+                "finish_time": f"{t - timedelta(days=4):%Y-%m-%d} 13:02:11", "overall_satisfaction": 5,
+                "satisfaction_description": "非常满意", "coupon_title": "满意度问卷专享 买一送一（演示）",
+                "coupon_trade_start_time": f"{t - timedelta(days=4):%Y-%m-%d} 00:00:00",
+                "coupon_trade_end_time": f"{t + timedelta(days=3):%Y-%m-%d} 23:59:59",
+                "coupon_redeem_status": "可核销", "coupon_available_redeem_count": 1, "coupon_order_food_types": "1"}
 
     def _cancel_order(self, orderId: str, cancelReasonCode: str = "1") -> dict[str, Any]:
         return {"orderId": orderId, "cancelResult": True}
@@ -360,8 +383,36 @@ class DemoClient:
             "promotions": ["保鲜速达: 满300享78折/满500享74折", "专人分餐: 满300享88折/满500享84折"],
         }
 
+    def _query_promotions(self, storeCode: str, orderType: int = 2, beType: int = 6, beCode: str = "",
+                          reservationDate: str = "") -> list:
+        if int(beType) != 6:
+            raise McdError("仅企业团餐场景可用")
+        t = self.today
+        when = {"startTime": f"{t:%Y-%m-01} 00:00:00", "endTime": f"{t + timedelta(days=30):%Y-%m-%d} 23:59:59"}
+        return [
+            dict(when, promotionId="PROMO-REDUCE", promotionType="31", ruleCategory=40, beTypes=["6"], gmServiceCode="",
+                 products=[{"productCode": "", "type": "3"}],
+                 ruleDetail={"orderReduce": {"reduceInfo": [{"startDiscountPoint": "100", "reduceAmount": "10"},
+                                                            {"startDiscountPoint": "200", "reduceAmount": "30"}]}}),
+            dict(when, promotionId="PROMO-DISCOUNT", promotionType="33", ruleCategory=30, beTypes=["6"], gmServiceCode="",
+                 products=[{"productCode": "920200", "type": "2"}, {"productCode": "920201", "type": "2"}],
+                 ruleDetail={"orderDiscount": {"startDiscountPoint": "300", "discount": "15"}}),
+        ]
+
+    def _group_saving(self, rows: list[dict[str, Any]], storeCode: str) -> int:
+        from .promos import parse_promotions, promo_status
+        lines = [(r["productCode"], r["subtotal"]) for r in rows if r["productCode"] in _MENU]
+        st = promo_status(parse_promotions(self._query_promotions(storeCode)), lines)
+        return st["applied"]["saving_fen"] if st["applied"] else 0
+
     # ---- order tracking ------------------------------------------------
     def _query_order(self, orderId: str) -> dict[str, Any]:
+        if str(orderId).endswith("0000"):   # the finished order in order-list
+            return {"orderId": orderId, "orderStatus": "已完成", "storeName": _STORES[0]["storeName"],
+                    "orderProductList": [{"productName": "麦辣鸡腿堡", "quantity": 2, "price": "35.25"},
+                                         {"productName": "中份薯条", "quantity": 1, "price": "12"}],
+                    "realTotalAmount": "38.5", "totalDiscountAmount": "8.75", "deliveryInfo": {}, "pickupCode": "A088",
+                    "takeWay": "eat-in", "createTime": f"{self.today - timedelta(days=4):%Y-%m-%d} 12:21:08"}
         return {
             "orderId": orderId, "orderStatus": "制作中", "storeName": _STORES[0]["storeName"],
             "orderProductList": [{"productName": "巨无霸", "quantity": 1, "price": "25"},
@@ -388,26 +439,58 @@ class DemoClient:
         return [{"date": f"{self.today + timedelta(days=k):%Y-%m-%d}", "spuId": spuId, "storeCode": storeCode} for k in (2, 3, 9)]
 
     def _query_party_store_session(self, storeCode: str, spuId: int, dateStr: str) -> list:
-        return [{"id": 1, "timeStart": "10:30", "timeEnd": "12:00", "leftNum": 1, "partyMin": 6, "partyMax": 20, "price": 5800},
+        return [{"id": 1, "timeStart": "10:30", "timeEnd": "12:00", "leftNum": 8, "partyMin": 6, "partyMax": 20, "price": 5800},
                 {"id": 2, "timeStart": "14:30", "timeEnd": "16:00", "leftNum": 0, "partyMin": 6, "partyMax": 20, "price": 5800}]
 
-    # ---- lottery (read-only) ----------------------------------------------
+    def _party_order_create(self, partyType: int, spuId: int = 0, skuId: int = 0, code: str = "", storeCode: str = "",
+                            dateStr: str = "", id: Any = None, timeStart: str = "", timeEnd: str = "", leftNum: int = 0,
+                            count: int = 1, partyTimeInfo: dict[str, Any] | None = None) -> dict[str, Any]:
+        if int(partyType) not in (1, 2):
+            raise McdError("请选择包场或拼团")
+        if not (storeCode and dateStr and id is not None and timeStart):
+            raise McdError("场次信息不完整")
+        if not leftNum:
+            raise McdError("该场次已约满")
+        self._orders += 1
+        oid = f"PTY{self._orders:010d}"
+        price = (partyTimeInfo or {}).get("price") or 5800
+        return {"orderId": oid, "orderStatus": 10, "status": 1, "amount": f"{price / 100:g}", "point": 0,
+                "payH5Url": f"https://m.mcd.cn/mcp/scanToPay?orderId={oid}",
+                "goods": [{"spuId": spuId, "skuId": skuId, "count": count, "price": f"{price / 100:g}",
+                           "spuName": "生日派对（演示数据）" if int(spuId) == 701 else "派对活动（演示数据）"}]}
+
+    # ---- lottery ------------------------------------------------------------
     def _query_lottery_info(self) -> dict[str, Any]:
         t = self.today
         return {
             "activityCode": "DEMO-LOTTERY", "activityName": "积分抽奖（演示数据）", "activityStatusText": "进行中",
             "beginTime": f"{t - timedelta(days=5):%Y-%m-%d} 00:00:00", "endTime": f"{t + timedelta(days=20):%Y-%m-%d} 23:59:59",
             "drawPoint": "100", "drawTypeText": "消耗积分抽奖", "availableTimes": None, "availablePoint": str(self.available),
-            "drawDecision": {"resourceEligible": True, "reason": None,
+            "drawDecision": {"resourceEligible": self.available >= 100, "reason": None if self.available >= 100 else "积分不足",
                              "nextConsumption": {"type": "POINTS", "points": "100", "chances": 0, "text": "本次消耗 100 积分"}},
             "prizes": [{"name": "麦旋风兑换券（演示）", "imageUrl": "", "typeText": "优惠券"},
                        {"name": "汉堡造型钥匙扣（演示）", "imageUrl": "", "typeText": "实物"},
                        {"name": "50 积分（演示）", "imageUrl": "", "typeText": "积分"}],
         }
 
+    def _draw_lottery(self) -> dict[str, Any]:
+        if self.available < 100:
+            return {"status": {"code": "POINT_NOT_ENOUGH", "message": "积分不足，无法抽奖"}, "win": None, "prizes": None}
+        self.available -= 100
+        self._draws += 1
+        win = self._draws % 2 == 1      # demo: first draw wins, then alternates
+        prizes = [{"name": "麦旋风兑换券（演示）", "imageUrl": "", "typeText": "优惠券",
+                   "validDateInfo": f"{self.today:%Y-%m-%d} 至 {self.today + timedelta(days=7):%Y-%m-%d} 可用"}] if win else []
+        for p in prizes:
+            self._won.insert(0, {"id": f"W{self._draws}", "name": p["name"], "imageUrl": "", "prizeType": 1,
+                                 "recordTime": f"{self.today:%Y-%m-%d} 12:30:00", "status": 1, "statusText": "可用",
+                                 "timeRemindText": "7 天后过期"})
+        return {"status": {"code": "SUCCESS", "message": "抽奖成功"}, "win": win, "prizes": prizes,
+                "consumePoint": "100", "remainPoint": str(self.available), "remainChance": None}
+
     def _query_my_prizes(self, pageNum: str = "1", pageSize: str = "10") -> dict[str, Any]:
         t = self.today
-        return {"pageNum": 1, "pageSize": int(pageSize), "hasMore": False, "nextCursor": None, "prizes": [
+        return {"pageNum": 1, "pageSize": int(pageSize), "hasMore": False, "nextCursor": None, "prizes": self._won + [
             {"id": "P1", "name": "圆筒冰淇淋兑换券（演示）", "imageUrl": "", "prizeType": 1,
              "recordTime": f"{t - timedelta(days=2):%Y-%m-%d} 12:03:00", "status": 1, "statusText": "可用",
              "timeRemindText": "5 天后过期"},

@@ -237,6 +237,21 @@ def _pick_service(client: Any, scene: Scene, service: str | None) -> None:
               *([promo] if promo else []))
 
 
+def group_promotions(client: Any, scene: Scene) -> list[Any]:
+    """团餐门店当前的满减 / 满折规则（只有企业团餐有）。拿不到就当没有，不挡下单。"""
+    from .promos import parse_promotions
+    if scene.mode != "group":
+        return []
+    args = dict(scene.params(), orderType=2, beType=6)
+    try:
+        data = ui.call(client, "query-promotions", args,
+                       summary=lambda d: (lambda ps: f"{len(ps)} 条团餐优惠：" + "；".join(p.text for p in ps[:3])
+                                          if ps else "这家门店现在没有团餐满减满折")(parse_promotions(d)))
+    except ui.ShownError:
+        return []
+    return parse_promotions(data)
+
+
 # ------------------------------------------------------------------ menu
 def load_menu(client: Any, scene: Scene) -> list[MenuItem]:
     data = ui.call(client, "query-meals", scene.params(),

@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, urlparse
 ALLOWED = {
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
     "address", "config", "track", "orders", "cancel", "history", "calendar", "prizes", "events", "party", "remind",
+    "survey", "draw",
 }
 # A QR code is only drawn for payment / order links on McDonald's own domains.
 QR_HOSTS = (".mcd.cn", ".mcdonalds.com.cn")

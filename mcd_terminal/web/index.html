@@ -385,7 +385,7 @@ dialog.xwide { width: min(900px, calc(100vw - 32px)); }
 .set:first-of-type { border-top: 0; padding-top: 4px; }
 .set h4 { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
 .set .now { color: var(--ink-2); font-size: 14px; margin: 0 0 10px; }
-.seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 99px; padding: 2px; background: var(--sunken); flex-wrap: wrap; }
+.seg { justify-self: start; display: inline-flex; border: 2px solid var(--ink); border-radius: 99px; padding: 2px; background: var(--sunken); flex-wrap: wrap; }
 .seg button { border: 0; background: none; padding: 3px 14px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
 .addr-list { display: grid; gap: 8px; margin-bottom: 10px; }
@@ -417,6 +417,26 @@ dialog::backdrop { background: rgba(34, 28, 53, .5); }
 .dlg input { width: 100%; border: 2px solid var(--ink); border-radius: 10px; padding: 8px 12px; background: var(--surface); }
 .qr { width: 228px; height: 228px; margin: 14px auto; background: #fff; border-radius: 14px; padding: 8px; border: 2px solid #221c35; }
 .qr svg { width: 100%; height: 100%; }
+/* lottery draw: a little wheel that spins while the server draws */
+.draw-wheel { width: 132px; height: 132px; margin: 18px auto 8px; border-radius: 50%; border: 3px solid var(--ink); box-shadow: 4px 4px 0 var(--ink);
+  background: conic-gradient(var(--ketchup) 0 60deg, var(--sun) 0 120deg, var(--grape) 0 180deg, var(--pickle) 0 240deg, var(--gum) 0 300deg, #fff 0 360deg); position: relative; }
+.draw-wheel::after { content: ""; position: absolute; inset: 42%; background: var(--ink); border-radius: 50%; }
+.draw-wheel.spin { animation: drawspin 0.6s linear infinite; }
+@keyframes drawspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .draw-wheel.spin { animation-duration: 3s; } }
+.win { text-align: center; }
+.win .tiles.wrap { grid-template-columns: repeat(auto-fit, 150px); justify-content: center; }
+.cost { display: inline-block; background: #fff4d6; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 12px; font-weight: 700; }
+.stepper { justify-self: start; display: inline-flex; align-items: center; gap: 10px; }
+.stepper button { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--ink); background: var(--sun); font-weight: 800; cursor: pointer; }
+.stepper b { min-width: 2ch; text-align: center; font-size: 18px; }
+.seg { justify-self: start; display: inline-flex; border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: #fff; padding: 6px 14px; font-weight: 700; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.book-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: center; margin: 12px 0; }
+.book-grid > span { color: var(--muted, #6b6880); font-size: 14px; }
+.survey { margin-top: 14px; border: 2px dashed var(--ink); border-radius: var(--r-m); padding: 10px 12px; background: #fffaf0; }
+.survey b { display: block; }
 .warn { color: var(--ketchup); font-size: 14px; font-weight: 600; }
 .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 18px; border-radius: 99px; z-index: 50; font-size: 14px; font-weight: 600; max-width: calc(100vw - 32px); }
 footer { text-align: center; color: var(--ink-3); font-size: 13px; padding: 0 var(--gutter) 40px; }
@@ -822,13 +842,50 @@ function campaignDialog(x) {
       });
     });
 }
+async function payBody(title, oid, payYuan, url) {
+  let qr = "";
+  try { const r = await fetch("/api/qr?data=" + encodeURIComponent(url || ""), { headers: { "X-Mcd-Secret": SECRET } }); if (r.ok) qr = await r.text(); } catch (e) {}
+  return `<h3>${esc(title)}</h3>
+    <p class="muted">订单 ${esc(oid || "")}${payYuan != null ? ` · 实付 <b class="num">${yuan(payYuan)}</b>` : ""}</p>
+    ${qr ? `<div class="qr">${qr}</div>` : ""}
+    ${url ? `<p style="text-align:center"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">在这台电脑上打开付款页</a></p>` : `<p class="muted">付款请在麦当劳 App 的订单里完成。</p>`}`;
+}
+
 function lotteryDialog(lot) {
   $("#dlg").classList.add("wide");
+  const can = lot.eligible !== false;
   openDialog(`<h3>🎰 ${esc(lot.name)}</h3>
-    <p class="muted">${esc(lot.status || "")}${lot.end ? " · 到 " + esc(String(lot.end).slice(0, 10)) : ""}${lot.next_cost ? " · " + esc(lot.next_cost) : ""}</p>
+    <p class="muted">${esc(lot.status || "")}${lot.end ? " · 到 " + esc(String(lot.end).slice(0, 10)) : ""}</p>
     ${(lot.prizes || []).length ? `<div class="tiles wrap">${lot.prizes.map((p) => `<div class="tile"><div class="plate">${pic(p.image, p.name)}</div><b>${esc(p.name)}</b><small>${esc(p.type || "")}</small></div>`).join("")}</div>` : ""}
-    <p class="muted" style="font-size:13px">这里只展示奖池，抽奖请在麦当劳 App 里进行；抽中的奖品在「我的券和积分」里能看到。</p>
-    <div class="actions"><button class="btn" data-close>好的</button></div>`);
+    <p style="margin:10px 0 0">${can ? `抽一次：<span class="cost">${esc(lot.next_cost || (lot.draw_points ? "消耗 " + lot.draw_points + " 积分" : "按活动规则消耗"))}</span>` : `<span class="warn">${esc(lot.reason || "现在不能抽：次数或积分不够")}</span>`}</p>
+    ${lot.then ? `<p class="muted" style="font-size:13px">本次优先消耗次数；次数用完后将改为${esc(lot.then)}</p>` : ""}
+    <p class="muted" style="font-size:13px">每次都会先问你，一次只抽一次。抽中的奖品在「我的券和积分」里。</p>
+    <div class="actions"><button class="btn ghost" data-close>先不抽</button>${can ? `<button class="btn gold" data-draw>抽一次</button>` : ""}</div>`,
+    (dlg) => { const b = dlg.querySelector("[data-draw]"); if (b) b.addEventListener("click", () => confirmDraw(lot)); });
+}
+function confirmDraw(lot) {
+  setDialog(`<h3>确定抽一次吗？</h3>
+    <p>${esc(lot.name)}</p><p>本次 <span class="cost">${esc(lot.next_cost || "按活动规则消耗")}</span></p>
+    ${lot.then ? `<p class="muted" style="font-size:13px">本次优先消耗次数；次数用完后将改为${esc(lot.then)}</p>` : ""}
+    <p class="muted" style="font-size:13px">扣掉的积分或次数不能退回。</p>
+    <div class="actions"><button class="btn ghost" data-close>再想想</button><button class="btn gold" data-yes>抽！</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", doDraw));
+}
+async function doDraw() {
+  setDialog(`<h3>抽奖中…</h3><div class="draw-wheel spin" role="img" aria-label="转盘转动中"></div>`);
+  const [d] = await Promise.all([run(["draw", "-y"]), new Promise((r) => setTimeout(r, 1400))]);
+  if (!d.ok || d.status !== "drawn") {
+    setDialog(`<h3>没抽成</h3><p class="err">${esc(d.error || d.message || "请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`);
+    return;
+  }
+  const won = d.won || [];
+  const left = [d.points_left != null ? `剩余积分 ${d.points_left}` : "", d.chances_left != null ? `剩余次数 ${d.chances_left}` : ""].filter(Boolean).join("，");
+  setDialog(`<div class="win">${d.win && won.length ? `<h3>🎉 抽中了！</h3>
+      <div class="tiles wrap">${won.map((p) => `<div class="tile added"><div class="plate">${pic(p.image, p.name)}</div><b>${esc(p.name)}</b><small>${esc(p.valid || p.type || "")}</small></div>`).join("")}</div>`
+      : `<h3>这次没中</h3><p style="font-size:42px;margin:8px 0">🍀</p><p>下次好运！</p>`}
+    ${left ? `<p class="muted">${esc(left)}</p>` : ""}</div>
+    <div class="actions"><button class="btn ghost" data-close>关闭</button>${d.win ? `<button class="btn gold" data-mine>去看我的奖品</button>` : ""}</div>`,
+    (dlg) => { const b = dlg.querySelector("[data-mine]"); if (b) b.addEventListener("click", () => { closeDialog(); go("assets"); }); });
 }
 
 async function loadSessions(e, city) {
@@ -844,13 +901,54 @@ async function loadSessions(e, city) {
   const rows = (d.days || []).flatMap((day) => (day.sessions || []).map((x) => ({ ...x, date: day.date })));
   box.innerHTML = `<p style="margin:12px 0 6px"><b>${esc(d.store.name)}</b> <span class="muted" style="font-size:13px">${esc(d.store.distance || "")} · ${esc(d.city || "")}</span></p>
     ${rows.length ? `<div style="display:grid;gap:6px">${rows.map((x, i) => `<div class="extra" style="padding:6px 10px">
-      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 场" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}</span>` : ""}</p>
-      ${x.left > 0 ? `<button class="btn ghost" data-rs="${i}">⏰ 提醒我</button>` : ""}</div>`).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
-    <p class="muted" style="font-size:13px">预订需要在麦当劳 App 里完成，先设个提醒不会错过。</p>`;
+      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 位" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}</span>` : ""}</p>
+      ${x.left > 0 ? `<button class="btn ghost" data-rs="${i}">⏰ 提醒我</button><button class="btn gold" data-book="${i}">预约</button>` : ""}</div>`).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
+    <p class="muted" style="font-size:13px">选好场次就能直接预约，下单后扫码付款；每一步都会先让你确认。</p>`;
+  box.querySelectorAll("[data-book]").forEach((b) => b.addEventListener("click", () => bookParty(e, d, rows[Number(b.dataset.book)])));
   box.querySelectorAll("[data-rs]").forEach((b) => b.addEventListener("click", () => {
     const x = rows[Number(b.dataset.rs)];
     remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒");
   }));
+}
+
+async function bookParty(e, d, x) {
+  const base = ["party", String(e.spu_id), "-c", d.city || "", "--book", "--date", x.date, "--time", String(x.start).slice(0, 5)];
+  setDialog(`<h3>预约 ${esc(e.name)}</h3>${loader("确认场次…", "", true)}`);
+  const first = await run(base);
+  if (!first.ok) { setDialog(`<h3>约不了</h3><p class="err">${esc(first.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return; }
+  const fixed = first.status === "needs_confirmation" ? (first.booking || {}).type : null;
+  const lo = x.min || 1, hi = x.max || 99;
+  let kind = fixed || "包场", n = (first.booking || {}).count || (kind === "包场" ? lo : 1);
+  const draw = () => setDialog(`<h3>预约 ${esc(e.name)}</h3>
+    <p class="muted">${esc(d.city || "")} ${esc(d.store.name)}</p>
+    <div class="book-grid">
+      <span>场次</span><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b>
+      <span>方式</span>${fixed ? `<b>${esc(fixed)}</b>` : `<div class="seg" role="group">${["包场", "拼团"].map((k) => `<button data-kind="${k}" aria-pressed="${k === kind}">${k}</button>`).join("")}</div>`}
+      <span>人数</span><div class="stepper"><button data-n="-1" aria-label="少一人">−</button><b class="num">${n}</b><button data-n="1" aria-label="多一人">+</button></div>
+      <span>价格</span><b class="num">${x.price_yuan != null ? "¥" + x.price_yuan : "以下单页为准"}</b>
+    </div>
+    <p class="muted" style="font-size:13px">${kind === "包场" ? "包场：整场只有你们，" + lo + "–" + hi + " 人" : "拼团：和其他家庭一起，这一场还剩 " + x.left + " 个位置"}。下单后扫码付款，退改以活动规则为准。</p>
+    <div class="actions"><button class="btn ghost" data-close>先不约</button><button class="btn gold" data-yes>确认预约</button></div>`,
+    (dlg) => {
+      dlg.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => { kind = b.dataset.kind; n = kind === "包场" ? Math.max(n, lo) : Math.min(n, x.left || n); draw(); }));
+      dlg.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => {
+        const max = kind === "拼团" ? Math.min(hi, x.left || hi) : hi;
+        n = Math.min(max, Math.max(1, n + Number(b.dataset.n))); draw();
+      }));
+      dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+        setDialog(`<h3>正在预约…</h3>${loader("向门店锁定场次、创建订单", "请不要关闭页面", true)}`);
+        const r = await run([...base, "--type", kind, "--count", String(n), "-y"]);
+        if (!r.ok || r.status !== "booked") {
+          setDialog(`<h3>没有约上</h3><p class="err">${esc(r.error || "请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return;
+        }
+        const o = r.order || {};
+        setDialog(`${await payBody("预约成功，扫码付款", o.order_id, o.pay_yuan, o.pay_url)}
+          <div class="actions"><button class="btn ghost" data-close>关闭</button><button class="btn gold" data-rem>⏰ 那天提醒我</button></div>`,
+          (dlg2) => dlg2.querySelector("[data-rem]").addEventListener("click", () =>
+            remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒")));
+      });
+    });
+  draw();
 }
 
 async function renderCampaigns() {
@@ -885,7 +983,7 @@ async function renderCampaigns() {
       </aside>
     </div>
     ${events.length ? `<section class="events-strip"><h3 class="section-title" style="margin-top:0">🎈 派对和体验活动</h3>
-      <p class="muted" style="margin:0 0 12px">生日派对、亲子活动、品鉴会，需要在麦当劳 App 里预订。</p>
+      <p class="muted" style="margin:0 0 12px">生日派对、亲子活动、品鉴会：点开选城市和场次，直接预约、扫码付款。</p>
       <div class="events-row">${events.map((e, i) => `<button class="event" data-event="${i}">
         <div class="art">${pic(e.image, e.name)}</div>
         <div class="body"><b>${esc(e.name)}</b><div class="row"><span>${esc(e.category || "")}</span><span class="num">${e.price_yuan != null ? "¥" + e.price_yuan : ""}</span></div></div>
@@ -1215,6 +1313,17 @@ async function renderOrders() {
   }));
   showTrack(pick);
 }
+async function loadSurvey(oid) {
+  const d = await run(["survey", oid]);
+  const box = document.getElementById("survey"); if (!box) return;
+  const x = d.ok ? (d.surveys || [])[0] : null;
+  if (!x) { box.innerHTML = `<span class="muted" style="font-size:13px">这单没有问卷记录。吃完填满意度问卷，常常会送券 🎟</span>`; return; }
+  box.innerHTML = x.coupon ? `<span class="muted" style="font-size:13px">问卷奖券 · 你给了「${esc(x.satisfaction || "")}」</span>
+      <b>${esc(x.coupon)}</b>
+      <span class="${x.usable ? "chip save" : "chip"}">${esc(x.coupon_status || "")}</span>
+      <span class="muted" style="font-size:13px">${x.valid_to ? "到 " + esc(String(x.valid_to).slice(0, 10)) : ""}${x.coupon_for ? " · " + esc(x.coupon_for) : ""}${x.usable ? " · 点餐时会自动算进去" : ""}</span>`
+    : `<span class="muted" style="font-size:13px">填过问卷（${esc(x.satisfaction || "")}），这单没有送券。</span>`;
+}
 async function showTrack(oid) {
   const t = $("#track"); t.innerHTML = `${loader("查询出餐进度…", "", true)}<div aria-hidden="true" style="display:grid;gap:10px">${sk("30%", 22)}${sk("100%", 10)}${sk("40%", 60, "margin:12px auto")}${sk("60%")}</div>`;
   const d = await run(["track", oid]);
@@ -1229,7 +1338,9 @@ async function showTrack(oid) {
     <p>${esc(o.store || "")}${o.delivery_address ? " → " + esc(o.delivery_address) : ""}</p>
     <ul>${(o.items || []).map((x) => `<li>${esc(x.name)} x${esc(x.quantity)}</li>`).join("")}</ul>
     <p>实付 <b class="num">¥${esc(o.pay_yuan)}</b>${o.discount_yuan && o.discount_yuan !== "0" ? `，优惠 ¥${esc(o.discount_yuan)}` : ""}</p>
-    ${!done && !cancelled ? `<p style="display:flex;gap:8px"><button class="btn ghost" id="refresh">刷新</button><button class="btn ghost" id="cancel">取消这单</button></p>` : ""}`;
+    ${!done && !cancelled ? `<p style="display:flex;gap:8px"><button class="btn ghost" id="refresh">刷新</button><button class="btn ghost" id="cancel">取消这单</button></p>` : ""}
+    ${done ? `<div class="survey" id="survey">${loader("看看这单的问卷送没送券…", "", true)}</div>` : ""}`;
+  if (done) loadSurvey(oid);
   const r = $("#refresh"); if (r) r.addEventListener("click", () => showTrack(oid));
   const c = $("#cancel"); if (c) c.addEventListener("click", () => openDialog(`<h3>取消这单？</h3><p>取消后不能恢复；如果已经付过款，退款会原路退回。</p>
     <div class="actions"><button class="btn ghost" data-close>不取消了</button><button class="btn" data-yes>确定取消</button></div>`,

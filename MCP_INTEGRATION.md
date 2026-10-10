@@ -12,9 +12,9 @@
 
 客户端（`mcd_terminal/client.py`）直接实现 JSON-RPC over HTTP：先 `initialize` 握手，记录 `Mcp-Session-Id`，再发送 `notifications/initialized`；之后每次 `tools/call` 都带上会话 ID 和协议版本头。JSON 和 SSE 两种响应都能处理，退出时用 `DELETE` 结束会话。401（Token 无效）和 429（超过每分钟 600 次）会转成中文提示。
 
-## 用到的 Tool（31 个）
+## 用到的 Tool（35 个，全部接入）
 
-服务端目前提供 35 个工具。本项目用到其中 31 个：积分、优惠券、点餐、订单、抽奖奖品，以及派对和体验活动的场次查询。抽奖只做展示，不会替用户抽奖（`draw-lottery` 未接入）；派对目前只查城市、门店、日期和场次，预订（`party-order-create`）要选包场/拼团、人数和支付，暂时引导用户在 App 里完成，等用真实数据确认流程后再接入；团餐促销和满意度问卷与“点得最省”无关，没有接入。
+服务端目前提供 35 个工具，本项目全部接入：积分、优惠券、点餐、订单、团餐满减、问卷奖券、积分抽奖，以及派对和体验活动的预约。会扣积分、抽奖、下单或预约的操作（`mall-create-order`、`create-order`、`draw-lottery`、`party-order-create`、`cancel-order`、`auto-bind-coupons`）都要先把要做的事讲清楚，用户确认后才调用；agent 模式下不加 `--yes` 只返回方案。
 
 | 能力 | Tool | 用在哪 |
 | --- | --- | --- |
@@ -30,18 +30,22 @@
 | 地址 | `delivery-query-addresses` / `delivery-create-address` | 外送和团餐选地址、`mcd address`、`mcd config address`；添加前先查一遍，相同地址不重复创建 |
 | 外送门店 | `delivery-query-stores` | 麦乐送、企业团餐 |
 | 团餐 | `query-meal-assistance` | 团餐助餐服务及满额折扣 |
+| 团餐满减满折 | `query-promotions` | `mcd order --group`：这单能享受哪一档满减/满折、再加多少钱到下一档、加哪样刚好够（只算现金部分，以核价为准） |
 | 菜单 | `query-meals` / `query-meal-detail` | 点餐时匹配菜品并读取活动标签（如“第二份半价”）、`mcd menu`、套餐组成 |
 | 营养 | `list-nutrition-foods` | 点餐时估算整餐热量、菜单热量列、`mcd nutrition` |
 | 门店可用券 | `query-store-coupons` | 点餐时找可叠加的已有券 |
 | 算价 | `calculate-price` | 试算每张券的用券价；确认前实时核价（含配送费、门店活动、团餐折扣）；下单前的最终价格 |
 | 下单 | `create-order` | 创建订单，返回支付链接 |
 | 订单进度 | `query-order` | `mcd track`：状态、取餐码、配送信息 |
-| 点餐记录 | `order-list` | `mcd orders`；`mcd track` / `mcd cancel` 不带订单号时找最近一单 |
+| 点餐记录 | `order-list` | `mcd orders`；`mcd track` / `mcd cancel` / `mcd survey` 不带订单号时找最近的订单 |
+| 问卷奖券 | `query-survey-coupon` | `mcd survey`：吃完填的满意度问卷送了什么券、有效期、是否已核销、适用到店还是外送；网页版订单页的已完成订单下方 |
 | 取消订单 | `cancel-order` | `mcd cancel`：确认后取消，可选取消原因 |
 | 派对场次 | `query-party-city` / `query-party-store` / `query-party-store-date` / `query-party-store-session` | `mcd party`、网页版活动地图里的派对卡片：哪个城市、哪家店、哪天几点还能约 |
-| 积分抽奖 | `query-lottery-info` / `query-my-prizes` | `mcd prizes`、网页版活动页的奖池和“我的奖品”（只查看，不抽奖） |
+| 派对预约 | `party-order-create` | `mcd party <名字> --book`：按 城市 → 门店 → 日期 → 场次 → 包场/拼团 → 人数 一步步选（活动只支持一种时自动带上），确认后下单、扫码付款；网页版场次旁的“预约” |
+| 积分抽奖 | `query-lottery-info` / `query-my-prizes` | `mcd prizes`、网页版活动页的奖池和“我的奖品” |
+| 抽奖 | `draw-lottery` | `mcd draw`：先展示 `drawDecision.nextConsumption`（本次扣多少次数或积分，有 `fallbackConsumption` 时一并说明），`resourceEligible` 为 false 时不调用；用户确认后只抽一次，不试抽、不连抽；失败时原样展示服务端的提示。网页版奖池弹窗的“抽一次” |
 
-`mcd doctor` 额外调用 MCP 标准方法 `tools/list`，逐一检查上面 31 个工具是否可用，并列出服务端新增的工具。
+`mcd doctor` 额外调用 MCP 标准方法 `tools/list`，逐一检查上面 35 个工具是否可用，并列出服务端新增的工具。
 
 ## 核心流程：券 + 积分 + 活动 + 实时核价，一单算到最省
 
@@ -116,4 +120,4 @@ create-order                 创建订单，返回支付链接（付款由用户
 - **对用户**：点餐时不用自己比较“这张券和那点积分哪个更划算”，一句话就能拿到最省的付法；快过期的券和用剩的积分会被顺手提醒用掉。
 - **对麦当劳**：唤醒沉睡积分和未使用的优惠券，把积分商城、门店活动和点餐连成一条链路，提升券的核销率、活动曝光和客单件数。
 - **对 AI agent**：`--json` 和自带的 Skill 让 agent 能直接调用这套能力，同时保证每次扣积分、下单前都先征得用户同意。
-- **对开发者**：提供一个接入 31 个工具的完整示例，以及一个不依赖 SDK 的 Streamable HTTP 客户端实现（附带与官方 SDK 的互通测试）。
+- **对开发者**：提供一个接入全部 35 个工具的完整示例，以及一个不依赖 SDK 的 Streamable HTTP 客户端实现（附带与官方 SDK 的互通测试）。

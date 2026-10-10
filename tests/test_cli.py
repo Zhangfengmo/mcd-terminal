@@ -133,7 +133,7 @@ def test_every_mcp_tool_is_used_somewhere():
         if p.name == "cli.py":  # don't count the REQUIRED_TOOLS list itself
             text = re.sub(r"REQUIRED_TOOLS = \[.*?\]", "", text, flags=re.S)
         src += text
-    assert len(REQUIRED_TOOLS) == 31
+    assert len(REQUIRED_TOOLS) == 35
     assert [t for t in REQUIRED_TOOLS if f'"{t}"' not in src] == []
 
 

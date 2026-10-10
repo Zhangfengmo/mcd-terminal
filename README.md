@@ -9,7 +9,7 @@
 
 [![Release](https://img.shields.io/github/v/release/Zhangfengmo/mcd-terminal?color=D97757&label=release)](https://github.com/Zhangfengmo/mcd-terminal/releases/latest)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-x64%20%26%20arm64-4EBA65)
-![MCP](https://img.shields.io/badge/麦当劳%20MCP-31%20个工具-E5A84B)
+![MCP](https://img.shields.io/badge/麦当劳%20MCP-35%20个工具全接入-E5A84B)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#更多)
 
 [快速开始](#快速开始) · [网页版](#网页版mcd-web) · [功能](#功能) · [原理剖析](#原理剖析) · [作为 Skill 使用](#作为-skill-使用) · [使用示例](#使用示例) · [常见问题](#常见问题) · [反馈与参与](#反馈与参与)
@@ -91,6 +91,8 @@ mcd party 生日派对 -c 上海             # 生日派对还有哪些门店、
 | --- | --- |
 | 🧮 **一句话点餐，自动最省** | 每样东西是付现金、用已有的券，还是先用积分兑一张，全部比一遍，选出实付最低的组合。演示里原价 ¥68.50 的一单，叠加 2 张券和 1,700 积分后只要 ¥21.80 |
 | 🔍 **实时核价** | 下单前向门店报价，配送费、第二份半价、团餐折扣都以麦当劳服务端为准 |
+| 🏢 **团餐凑满减** | `--group` 给团队订餐时，自动套上门店的满减/满折，算出这单省多少、再加 ¥X 就到下一档、加哪样刚好够 |
+| 🎈 **派对一键预约，抽奖先说清楚** | 生日派对、体验营选好场次和人数就能约，扫码付款；积分抽奖先告诉你这次扣多少，确认后只抽一次；问卷送的券也帮你找出来 |
 | 🎁 **顺手提醒“不加白不加”的** | 快过期却没用上的券、用剩的积分正好够换一个冰淇淋、第二份半价……问你要不要顺便带上，加上后重新计算 |
 | ☀️ **每天打开看一眼** | 直接输入 `mcd`：积分和券的到期提醒、可以领的券、今天的活动，还会推荐一份适合这个时间的餐 |
 | ⏳ **不让积分白白过期** | `mcd spend --expiring` 把快过期的积分凑成最值的兑换组合；`mcd market` 告诉你一积分值几分钱 |
@@ -150,8 +152,10 @@ agent 调用时都加 `--json`，输出单个 JSON 对象。会扣积分或下�
 | `mcd order 巨无霸 --delivery` | 麦乐送外送到家，先用 `mcd address add` 加一个收货地址（`--drive` 得来速，`--group` 团餐，`--at "2026-10-10 12:00"` 预约） |
 | `mcd order 巨无霸 --near 人民广场 --city 上海` | 换一家门店，以后会记住 |
 | `mcd web` | 网页版：看活动、带图点餐、扫码付款 |
-| `mcd prizes` | 积分抽奖的奖池和我抽中的奖品（只查看） |
-| `mcd events` / `mcd party <名字>` | 生日派对、亲子活动、品鉴会；查哪家店哪天几点还能约 |
+| `mcd prizes` / `mcd draw` | 积分抽奖的奖池和我抽中的奖品；`draw` 先告诉你扣多少，确认后抽一次 |
+| `mcd events` / `mcd party <名字> --book` | 生日派对、亲子活动、品鉴会：查哪家店哪天几点还能约，选好场次直接预约、扫码付款 |
+| `mcd survey` | 吃完填的满意度问卷送了什么券、还能不能用 |
+| `mcd order 巨无霸x10 --group` | 企业团餐：自动套上满减/满折，告诉你再加多少能到下一档 |
 | `mcd remind coupons\|points\|campaign` | 把到期日和活动放进提醒事项（Mac）或日历（Windows / Linux） |
 | `mcd config` | 默认门店、收货地址、点餐方式、积分用法，设一次就行 |
 | `mcd track` | 刚才那单做到哪了，显示取餐码 |
@@ -231,7 +235,7 @@ mcd t                         # = mcd track
 
 ## 更多
 
-- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、31 个工具、调用流程、真实服务端的兼容细节和业务价值
+- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、35 个工具、调用流程、真实服务端的兼容细节和业务价值
 - [SKILL.md](SKILL.md) · [AGENTS.md](AGENTS.md)：给 AI agent 的使用指南
 - 本项目是麦当劳程序员创意开发大赛的参赛作品，并非麦当劳官方产品，仅供个人非商业使用。参赛声明见 [CONTEST_DECLARATION.md](CONTEST_DECLARATION.md)。
 - License: MIT

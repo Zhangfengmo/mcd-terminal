@@ -16,7 +16,7 @@ Windows 用 `irm https://github.com/Zhangfengmo/mcd-terminal/releases/latest/dow
 要点：
 
 - 所有命令都加 `--json`，stdout 只输出一个 JSON 对象。
-- 会扣积分或下单的命令，不加 `--yes` 只返回方案（`status: needs_confirmation`）；必须先得到用户同意，再执行返回值里的 `confirm_with`。
+- 会扣积分、下单、抽奖或预约派对的命令（order、spend、buy、claim、cancel、draw、party --book），不加 `--yes` 只返回方案（`status: needs_confirmation`）；必须先得到用户同意，再执行返回值里的 `confirm_with`。
 - 付款永远由用户自己打开 `pay_url` 完成。
 - 没有 Token 时加 `--demo`。
 

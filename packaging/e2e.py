@@ -22,7 +22,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "prizes", "events", "party", "remind", "web", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "draw", "events", "party", "survey", "remind", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -68,8 +68,34 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("prizes --json", ["--demo", "--json", "prizes"], json=True)
     add("events", ["--demo", "events"], contains=["生日派对"])
     add("events --json", ["--demo", "--json", "events"], json=True)
-    add("party sessions", ["--demo", "party", "生日派对", "-c", "上海"], contains=["余 1"])
+    add("party sessions", ["--demo", "party", "生日派对", "-c", "上海"], contains=["余 8", "--book"])
     add("party --json", ["--demo", "--json", "party", "生日派对", "-c", "上海"], json=True, status="listed")
+    add("party book: choose session (agent)", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book"],
+        json=True, status="choose_session")
+    add("party book: choose type (agent)", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+                                            "--time", "10:30"], json=True, status="choose_type")
+    add("party book: needs confirmation", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+                                           "--time", "10:30", "--type", "包场", "--count", "8"], json=True, status="needs_confirmation")
+    add("party book: -y books and returns a pay link", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date",
+                                                        "2026-10-12", "--time", "10:30", "--type", "包场", "--count", "8", "-y"],
+        json=True, status="booked", contains=["scanToPay"])
+    add("party book: fixed type is enforced", ["--demo", "--json", "party", "体验营", "-c", "上海", "--book", "--date", "2026-10-12",
+                                               "--type", "包场"], exit_code=1, contains=["只能拼团"])
+    add("party book: too many people", ["--demo", "--json", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+                                        "--time", "10:30", "--type", "包场", "--count", "30", "-y"], exit_code=1, contains=["人数不对"])
+    add("party book interactive: pick session, type, confirm", ["--demo", "party", "生日派对", "-c", "上海", "--book"], "1\n1\n1\n",
+        contains=["party-order-create", "待支付"])
+    add("party book interactive: decline", ["--demo", "party", "生日派对", "-c", "上海", "--book", "--date", "2026-10-12",
+                                            "--type", "包场"], NO, lacks=["party-order-create"])
+    add("draw: agent must confirm first", ["--demo", "--json", "draw"], json=True, status="needs_confirmation",
+        contains=["本次消耗 100 积分"])
+    add("draw -y draws once", ["--demo", "--json", "draw", "-y"], json=True, status="drawn", contains=["\"won\""])
+    add("draw interactive: decline does not draw", ["--demo", "draw"], NO, lacks=["draw-lottery"])
+    add("draw interactive: confirm", ["--demo", "draw"], YES, contains=["draw-lottery", "抽中了"])
+    add("survey recent orders", ["--demo", "survey"], contains=["问卷", "可核销"])
+    add("survey --json", ["--demo", "--json", "survey"], json=True, contains=["满意度问卷专享"])
+    add("survey: order without a survey", ["--demo", "--json", "survey", "1030938700000000000000000001"], json=True,
+        contains=['"surveys": []'])
     add("party needs a city", ["--demo", "--json", "party", "生日派对", "-c", "火星"], exit_code=1, contains=["choose_city"])
     add("remind coupons --json needs confirmation", ["--demo", "--json", "remind", "coupons"], json=True,
         status="needs_confirmation")
@@ -82,7 +108,7 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
         contains=["web self-test passed"])
     add("history detail", ["--demo", "history", "ECS1211037028709736448"])
     add("orders", ["--demo", "orders"])
-    add("doctor", ["--demo", "doctor"], contains=["31"])
+    add("doctor", ["--demo", "doctor"], contains=["35"])
 
     # saved defaults
     add("config show", ["--demo", "config"], contains=["点餐方式"])
@@ -141,7 +167,10 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("order item not on menu", ["--demo", "--json", "order", "巨无霸", "火星披萨", "--dry-run"], json=False,
         exit_code=1, contains=["not_on_menu"])
     add("order drive-thru", ["--demo", "order", "巨无霸", "--drive", "--dry-run"])
-    add("order group meal", ["--demo", "order", "巨无霸x10", "--group", "--service", "专人分餐", "--dry-run"])
+    add("order group meal", ["--demo", "order", "巨无霸x10", "--group", "--service", "专人分餐", "--dry-run"],
+        contains=["query-promotions", "团餐优惠"])
+    add("order group meal: gap to the next tier", ["--demo", "--json", "order", "巨无霸x3", "--group", "--no-points", "--dry-run"],
+        json=True, contains=["group_promotions", "add_yuan"])
     add("order reservation", ["--demo", "order", "巨无霸", "--at", "2026-10-10 12:00", "--dry-run"])
 
     # after ordering
