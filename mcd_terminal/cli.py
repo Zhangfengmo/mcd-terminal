@@ -1249,6 +1249,31 @@ def _my_prizes(d: Any) -> list[dict[str, Any]]:
 
 
 @app.command()
+def events() -> None:
+    """派对和体验：生日派对、亲子活动、品鉴会这些要付费报名的活动（积分商城里 0 积分的那些）。"""
+    def go() -> None:
+        rows = _rows(ui.call(state.client, "mall-points-products",
+                             summary=lambda d: f"积分商城共 {len(_rows(d))} 个商品"))
+        now = _now()
+        found = [r for r in rows if _points_of(r) == 0 and on_shelf(r, now)]
+        items = [{"name": r.get("spuName"), "spu_id": r.get("spuId"), "category": r.get("catName") or None,
+                  "price_yuan": float(r["price"]) if str(r.get("price") or "").replace(".", "", 1).isdigit() else None,
+                  "intro": r.get("selling") or None, "image": r.get("spuImage") or None,
+                  "until": str(r.get("downTime") or "")[:10] or None} for r in found]
+        _out(events=items)
+        if not items:
+            ui.say("现在没有可以报名的派对或体验活动。")
+            return
+        ui.say(f"有 {len(items)} 个派对和体验活动可以报名（在麦当劳 App 里预订）：")
+        ui.console.print()
+        ui.simple_table([("活动", "left"), ("类型", "left"), ("价格", "right"), ("截止", "left")],
+                        [[i["name"] or "", ui.dim(i["category"] or ""),
+                          f"¥{i['price_yuan']:g}" if i["price_yuan"] is not None else "—", ui.faint(i["until"] or "")]
+                         for i in items])
+    _run("events", go)
+
+
+@app.command()
 def prizes() -> None:
     """奖品：积分抽奖在送什么、我抽中过什么（只查看，不会抽奖）。"""
     def go() -> None:

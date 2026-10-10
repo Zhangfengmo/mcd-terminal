@@ -146,6 +146,13 @@ class DemoClient:
                 "price": "0",
             }
             for spu, (name, pts, _, cat) in _PRODUCTS.items()
+        ] + [  # point "0" entries are paid events (parties, tastings)
+            {"spuName": "生日派对（演示数据）", "spuId": 701, "spuImage": "", "point": "0", "shopId": 5,
+             "selling": "主题装饰、游戏和蛋糕，小朋友的专属生日会", "upTime": "2026-01-01 00:00:00",
+             "downTime": f"{self.today + timedelta(days=80):%Y-%m-%d} 23:59:59", "catName": "生日类派对", "status": 2, "price": "58"},
+            {"spuName": "小小厨师体验营（演示数据）", "spuId": 702, "spuImage": "", "point": "0", "shopId": 5,
+             "selling": "走进后厨，亲手做一个汉堡", "upTime": "2026-01-01 00:00:00",
+             "downTime": f"{self.today + timedelta(days=80):%Y-%m-%d} 23:59:59", "catName": "品鉴会", "status": 2, "price": "72"},
         ] + [  # the live listing also keeps items whose window has passed
             {"spuName": "9.9元薯条两件套", "spuId": 598, "spuImage": "", "point": "200", "shopId": 2,
              "selling": "", "upTime": "2026-01-01 00:00:00", "downTime": "2026-03-21 23:59:59",

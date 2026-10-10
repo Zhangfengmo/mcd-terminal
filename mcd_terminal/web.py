@@ -29,7 +29,7 @@ from urllib.parse import parse_qs, urlparse
 # Commands the page may run (first word). Login, logout and skill install stay in the terminal.
 ALLOWED = {
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "config", "track", "orders", "cancel", "history", "calendar", "prizes",
+    "address", "config", "track", "orders", "cancel", "history", "calendar", "prizes", "events",
 }
 # A QR code is only drawn for payment / order links on McDonald's own domains.
 QR_HOSTS = (".mcd.cn", ".mcdonalds.com.cn")
@@ -224,10 +224,19 @@ def make_handler(secret: str, demo: bool) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return  # the browser stopped waiting (e.g. switched page while an image loaded)
+        super().handle_error(request, client_address)
+
+
 def serve(demo: bool = False, port: int = 0, open_browser: bool = True) -> tuple[ThreadingHTTPServer, str]:
     """Start the server; returns it and the URL to open (contains the per-run secret)."""
     secret = secrets.token_urlsafe(18)
-    httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(secret, demo))
+    httpd = _Server(("127.0.0.1", port), make_handler(secret, demo))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/?s={secret}"
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()

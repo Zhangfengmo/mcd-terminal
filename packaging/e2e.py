@@ -22,7 +22,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "prizes", "web", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "events", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -66,6 +66,8 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("history", ["--demo", "history"])
     add("prizes", ["--demo", "prizes"], contains=["积分抽奖"])
     add("prizes --json", ["--demo", "--json", "prizes"], json=True)
+    add("events", ["--demo", "events"], contains=["生日派对"])
+    add("events --json", ["--demo", "--json", "events"], json=True)
     add("web (self-test: page, API, QR, image proxy, security)", ["--demo", "web", "--self-test"],
         contains=["web self-test passed"])
     add("history detail", ["--demo", "history", "ECS1211037028709736448"])
