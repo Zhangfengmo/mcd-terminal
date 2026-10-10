@@ -31,12 +31,12 @@
 | 外送门店 | `delivery-query-stores` | 麦乐送、企业团餐 |
 | 团餐 | `query-meal-assistance` | 团餐助餐服务及满额折扣 |
 | 团餐满减满折 | `query-promotions` | `mcd order --group`：按所选助餐服务（`gmServiceCode`，如保鲜速达、专人分餐）筛出规则，算这单能享受哪一档满减/满折、再加多少钱到下一档、加哪样刚好够（只算现金部分，以核价为准） |
-| 菜单 | `query-meals` / `query-meal-detail` | 点餐时匹配菜品并读取活动标签（如“第二份半价”）、`mcd menu`、套餐组成 |
+| 菜单 | `query-meals` / `query-meal-detail` | 点餐时匹配菜品并读取活动标签（如“第二份半价”）、`mcd menu`、套餐组成；游戏厅的老虎机和每日猜价从本店菜单出题，用同一套券 + 积分算法算实付 |
 | 营养 | `list-nutrition-foods` | 点餐时估算整餐热量、菜单热量列、`mcd nutrition`；`mcd stats` 把点餐记录（`order-list`，套餐按 `comboItemList` 拆开）对上营养表，统计今天 / 本周 / 本月的摄入 |
 | 门店可用券 | `query-store-coupons` | 点餐时找可叠加的已有券 |
 | 算价 | `calculate-price` | 试算每张券的用券价；确认前实时核价（含配送费、门店活动、团餐折扣）；下单前的最终价格 |
 | 下单 | `create-order` | 创建订单，返回支付链接 |
-| 订单进度 | `query-order` | `mcd track`：状态、取餐码、配送信息 |
+| 订单进度 | `query-order` | `mcd track`：状态、取餐码、配送信息；`mcd play fries --wait` 边玩接薯条边每 20 秒查一次，餐好了停下显示取餐码 |
 | 点餐记录 | `order-list` | `mcd orders`；`mcd track` / `mcd cancel` / `mcd survey` 不带订单号时找最近的订单 |
 | 问卷奖券 | `query-survey-coupon` | `mcd survey`：吃完填的满意度问卷送了什么券、有效期、是否已核销、适用到店还是外送；网页版订单页的已完成订单下方 |
 | 取消订单 | `cancel-order` | `mcd cancel`：确认后取消，可选取消原因 |
