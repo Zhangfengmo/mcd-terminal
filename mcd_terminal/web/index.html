@@ -95,6 +95,50 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .chip.save { background: var(--pickle-soft); color: var(--pickle); }
 .toy { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; padding: 0 9px; border-radius: 99px; background: var(--gum-soft); color: #c2186b; font-weight: 700; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .toy { color: var(--gum); } }
+/* loading: three hopping stickers (券 / 积分 / 省), a shimmer for content that has a known shape */
+.loader { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 56px 16px; color: var(--ink-2); text-align: center; }
+.loader.small { padding: 18px 0; gap: 10px; }
+.dots { display: inline-flex; gap: 10px; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--ink); background: var(--ketchup); }
+.dots i:nth-child(2) { background: var(--sun); }
+.dots i:nth-child(3) { background: var(--grape); }
+.loader.small .dots i { width: 11px; height: 11px; }
+.loader .hint2 { font-size: 13px; color: var(--ink-3); }
+.skel { background: linear-gradient(90deg, var(--sunken) 0%, var(--surface) 50%, var(--sunken) 100%); background-size: 200% 100%; border-radius: 8px; }
+.skel-card { border: 2px solid var(--line); border-radius: var(--r-m); padding: 14px 12px; display: grid; gap: 10px; background: var(--surface); }
+.skel-card .skel:first-child { width: 72%; aspect-ratio: 1; border-radius: 50%; margin: 0 auto; }
+.skel-line { height: 12px; }
+.skel-row { display: grid; gap: 14px; }
+.skel-box { border: 2px solid var(--line); border-radius: var(--r-m); background: var(--surface); padding: 16px; display: grid; gap: 10px; }
+.skel-two { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; }
+.skel-side { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 22vw, 380px); gap: 22px; }
+@media (max-width: 900px) { .skel-two, .skel-side { grid-template-columns: 1fr; } }
+/* horizontal tiles: products of a campaign, prizes of a lottery */
+.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: 136px; gap: 12px; overflow-x: auto; padding: 4px 4px 10px 2px; }
+.tiles.wrap { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); overflow: visible; }
+.tile { border: 2px solid var(--ink); border-radius: var(--r-m); background: var(--surface); padding: 10px 8px; text-align: center; display: grid; gap: 4px; align-content: start; }
+.tile .plate { width: 76px; margin: 0 auto 2px; background: var(--sunken); }
+.tile .plate .emoji { font-size: 32px; }
+.tile b { font-size: 13px; line-height: 1.35; font-weight: 700; }
+.tile small { color: var(--ink-3); font-size: 12px; }
+.tile .num { font-weight: 900; }
+.tile .btn { padding: 3px 10px; font-size: 12px; margin-top: 4px; justify-self: center; }
+.tile.added { background: var(--sun-soft); }
+.fallback { border: 2px dashed var(--ketchup); border-radius: var(--r-m); padding: 12px 14px; background: var(--ketchup-soft); color: var(--ink); font-size: 14px; }
+.fallback .inline { margin-top: 8px; }
+.btn.is-busy { pointer-events: none; opacity: .85; }
+.btn.is-busy::after { content: ""; display: inline-block; width: 12px; height: 12px; margin-left: 8px; vertical-align: -1px; border-radius: 50%;
+                      border: 2px solid currentColor; border-right-color: transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  .dots i { animation: hop .9s ease-in-out infinite; }
+  .dots i:nth-child(2) { animation-delay: .15s; }
+  .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-12px); } }
+  .skel { animation: shimmer 1.2s linear infinite; }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .btn.is-busy::after { animation: spin360 .7s linear infinite; }
+  @keyframes spin360 { to { transform: rotate(360deg); } }
+}
 .empty { text-align: center; color: var(--ink-2); padding: 48px 16px; }
 .empty .btn { margin-top: 12px; }
 .err { background: var(--ketchup-soft); color: var(--ketchup); border: 2px solid var(--ketchup); border-radius: var(--r-m); padding: 12px 16px; margin: 0 0 16px; font-weight: 600; }
@@ -219,9 +263,14 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .dish:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow); }
 .dish .plate { width: 72%; margin: 0 auto; background: var(--sunken); }
 .dish .name { font-size: 14px; font-weight: 600; line-height: 1.35; min-height: 38px; }
-.dish .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.dish .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; row-gap: 6px; }
+.dish .price { display: flex; flex-direction: column; line-height: 1.15; }
+.dish .qty { margin-left: auto; }
+/* grid items default to min-width:auto; let long rows (category chips) scroll inside instead of widening the page */
+.order > *, .map-wrap > *, .assets > *, .orders > *, .hello > * { min-width: 0; }
+html, body { overflow-x: clip; }
 .dish .price { font-weight: 900; font-size: 16px; }
-.dish .was { color: var(--ink-3); text-decoration: line-through; font-size: 12px; margin-left: 4px; font-weight: 400; }
+.dish .was { color: var(--ink-3); text-decoration: line-through; font-size: 12px; margin-left: 0; font-weight: 400; }
 .dish .tags { display: flex; gap: 4px; flex-wrap: wrap; min-height: 20px; }
 .qty { display: inline-flex; align-items: center; gap: 4px; }
 .qty button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink); background: var(--sun); color: #221c35; font-weight: 900; font-size: 17px; line-height: 1; padding: 0; }
@@ -247,6 +296,8 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .stamp.s-coupon { background: var(--grape); }
 .stamp.s-points { background: var(--sun); color: #221c35; }
 .stamp.s-cash { background: #b9b4c9; }
+.rm { border: 0; background: none; padding: 0 2px; font-family: var(--font); font-size: 12px; font-weight: 700; color: #b0a594; text-decoration: underline; text-underline-offset: 2px; }
+.rm:hover, .rm:focus-visible { color: var(--ketchup); }
 .totals { margin-top: 12px; display: grid; gap: 3px; }
 .totals div { display: flex; justify-content: space-between; }
 .totals .big { font-size: 24px; font-weight: 900; margin-top: 4px; }
@@ -324,6 +375,12 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 
 /* ---------------------------------------------------------------- settings */
 dialog.wide { width: min(640px, calc(100vw - 32px)); }
+dialog.xwide { width: min(900px, calc(100vw - 32px)); }
+.camp-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 22px; align-items: start; }
+.camp-layout .camp-art { margin: 0; width: 100%; max-height: 420px; object-fit: cover; }
+.camp-art-empty { aspect-ratio: 4 / 3; border: 2px solid var(--ink); border-radius: var(--r-m); background: var(--sun-soft); display: grid; place-items: center; font-size: 72px; }
+.camp-layout .camp-detail { max-height: 230px; }
+@media (max-width: 720px) { .camp-layout { grid-template-columns: 1fr; } .camp-layout .camp-art, .camp-art-empty { max-height: 220px; } }
 .set { border-top: 2px dashed var(--line); padding: 16px 0 4px; }
 .set:first-of-type { border-top: 0; padding-top: 4px; }
 .set h4 { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
@@ -421,17 +478,54 @@ const yuan = (v) => (v == null ? "—" : "¥" + Number(v).toFixed(2));
 const state = { mapFilter: "all", tab: "today", mode: "pickup", menu: null, cart: new Map(), cat: "全部", q: "", plan: null, planSeq: 0, lastOrder: null };
 if (DEMO) $("#demoFlag").classList.remove("hidden");
 
+/* The button that triggered a request shows a spinner until the request finishes. */
+let pressed = null;
+document.addEventListener("click", (e) => { const b = e.target.closest("button"); pressed = b ? { b, t: performance.now() } : null; }, true);
 async function run(args) {
-  const res = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json", "X-Mcd-Secret": SECRET },
-                                         body: JSON.stringify({ args }) });
-  if (!res.ok) throw new Error(res.status === 403 ? "这个页面已经失效，请回到终端重新运行 mcd web" : "请求失败（" + res.status + "）");
-  return res.json();
+  const btn = pressed && performance.now() - pressed.t < 250 && pressed.b.classList.contains("btn") ? pressed.b : null;
+  pressed = null;
+  if (btn) { btn.classList.add("is-busy"); btn.setAttribute("aria-busy", "true"); }
+  try {
+    const res = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json", "X-Mcd-Secret": SECRET },
+                                           body: JSON.stringify({ args }) });
+    if (!res.ok) return { ok: false, error: res.status === 403 ? "这个页面已经失效，请回到终端重新运行 mcd web" : "请求失败（" + res.status + "）" };
+    return await res.json();
+  } catch (e) {
+    return { ok: false, error: "连不上本机服务，终端里的 mcd web 还开着吗？" };
+  } finally {
+    if (btn && btn.isConnected) { btn.classList.remove("is-busy"); btn.removeAttribute("aria-busy"); }
+  }
 }
 function toast(msg) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.append(t);
   setTimeout(() => t.remove(), 3200);
 }
 const modeFlag = () => (state.mode === "delivery" ? "-d" : "-p");
+
+const loader = (text, hint = "", small = false) =>
+  `<div class="loader ${small ? "small" : ""}" role="status" aria-live="polite"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>${esc(text)}</span>${hint ? `<span class="hint2">${esc(hint)}</span>` : ""}</div>`;
+const skeletonCards = (n) => `<div class="menu-grid" aria-hidden="true">${Array.from({ length: n }, () =>
+  `<div class="skel-card"><div class="skel"></div><div class="skel skel-line" style="width:80%"></div><div class="skel skel-line" style="width:45%"></div></div>`).join("")}</div>`;
+const sk = (w = "100%", h = 12, extra = "") => `<div class="skel" style="width:${w};height:${h}px;${extra}"></div>`;
+const SKELETONS = {
+  today: () => `<div class="skel-two" aria-hidden="true"><div class="skel-box" style="padding:30px">${sk("40%", 34)}${sk("70%")}${sk("38%", 64, "margin-top:10px")}${sk("60%")}${sk("55%")}${sk("50%")}${sk("120px", 40, "border-radius:99px;margin-top:8px")}</div>
+    <div class="skel-row">${[0, 1].map(() => `<div class="skel-box">${sk("100%", 150)}${sk("80%")}${sk("50%")}</div>`).join("")}</div></div>`,
+  map: () => `<div class="skel-side" aria-hidden="true"><div class="skel" style="aspect-ratio:1080/600;border-radius:24px"></div>
+    <div class="skel-box">${Array.from({ length: 7 }, () => `<div style="display:grid;grid-template-columns:46px 1fr;gap:10px;align-items:center">${sk("46px", 46, "border-radius:50%")}<div style="display:grid;gap:6px">${sk("85%")}${sk("50%", 10)}</div></div>`).join("")}</div></div>`,
+  assets: () => `<div class="skel-side" style="grid-template-columns:clamp(280px,24vw,360px) minmax(0,1fr)" aria-hidden="true"><div class="skel-box" style="padding:22px">${sk("40%")}${sk("60%", 48)}${sk("100%", 14, "border-radius:99px")}${sk("70%")}${sk("140px", 40, "border-radius:99px;margin-top:10px")}</div>
+    <div class="skel-row">${Array.from({ length: 4 }, () => `<div class="skel-box" style="grid-template-columns:96px 1fr 60px;align-items:center">${sk("96px", 54)}<div style="display:grid;gap:8px">${sk("60%")}${sk("40%", 10)}</div>${sk("40px", 30)}</div>`).join("")}</div></div>`,
+  mall: () => `<div aria-hidden="true">${sk("100%", 64, "border-radius:24px;margin-bottom:24px")}<div class="mall-grid">${Array.from({ length: 8 }, () => `<div class="skel-box">${sk("100%", 120)}${sk("75%")}${sk("40%", 18)}${sk("100%", 8)}</div>`).join("")}</div></div>`,
+  orders: () => `<div class="skel-two" style="grid-template-columns:1fr 1fr" aria-hidden="true"><div class="skel-row">${Array.from({ length: 4 }, () => `<div class="skel-box">${sk("70%")}${sk("45%", 10)}</div>`).join("")}</div>
+    <div class="skel-box" style="padding:24px">${sk("30%", 22)}${sk("100%", 10)}${sk("40%", 60, "margin:16px auto")}${sk("60%")}${sk("50%")}</div></div>`,
+};
+const loading = (kind, text, hint = "") => `${loader(text, hint, true)}${SKELETONS[kind]()}`;
+
+/* disable a button and show a spinner on it while its action runs */
+async function busy(btn, fn) {
+  if (!btn || btn.classList.contains("is-busy")) return fn();
+  btn.classList.add("is-busy"); btn.setAttribute("aria-busy", "true");
+  try { return await fn(); } finally { if (btn.isConnected) { btn.classList.remove("is-busy"); btn.removeAttribute("aria-busy"); } }
+}
 
 /* food emoji when a picture is missing (demo data, or an image that won't load) */
 function emojiFor(name) {
@@ -472,7 +566,7 @@ function go(tab) {
 
 /* ---------------------------------------------------------------- today */
 async function renderToday() {
-  const m = $("#main"); m.innerHTML = `<p class="loading">正在整理今天的情况…</p>`;
+  const m = $("#main"); m.innerHTML = loading("today", "正在整理今天的情况…");
   const [d, cal] = await Promise.all([run(["today"]), run(["calendar"])]);
   if (!d.ok) return showError(m, d.error);
   const p = d.points || {};
@@ -658,19 +752,68 @@ function mapSvg(items, lot) {
   </svg>`;
 }
 
+/* Menu items a campaign mentions, at the store the user orders from. */
+async function ensureMenu() {
+  if (state.menu) return { ok: true };
+  const d = await run(["menu", modeFlag(), "--limit", "500"]);
+  if (d.ok) state.menu = d.items || [];
+  return d;
+}
+function campaignItems(x) {
+  const text = [x.title, x.detail || x.intro].join(" ").replace(/\s+/g, "");
+  const hits = (state.menu || []).filter((m) => m.name.length >= 2 && text.includes(m.name.replace(/\s+/g, "")));
+  hits.sort((a, b) => b.name.length - a.name.length);
+  // drop "麦旋风" when "蓝莓爆爆珠麦旋风" is also there: keep the specific item
+  return hits.filter((m, i) => !hits.slice(0, i).some((o) => o.name.includes(m.name))).slice(0, 8);
+}
+async function loadCampaignProducts(x) {
+  const box = document.getElementById("campProducts"); if (!box) return;
+  const d = await ensureMenu();
+  if (!document.getElementById("campProducts")) return;
+  const store = state.mode === "delivery" ? "外送门店" : ((state.config && state.config.store && state.config.store.name) || "你的门店");
+  if (!d.ok) {
+    box.innerHTML = `<div class="fallback">没能打开门店菜单：${esc(d.error)}<div class="inline"><button class="btn ghost" data-store>换一家门店</button></div></div>`;
+  } else {
+    const items = campaignItems(x);
+    if (!items.length) {
+      box.innerHTML = `<div class="fallback">${esc(store)}的菜单里现在没有这个活动的餐品——可能只在部分门店供应、已经售罄，或者还没开始。
+        <div class="inline"><button class="btn ghost" data-store>换一家门店</button><button class="btn ghost" data-menu>看看菜单里有什么</button></div></div>`;
+    } else {
+      box.innerHTML = `<div class="tiles">${items.map((m, i) => `<div class="tile ${state.cart.get(m.code) ? "added" : ""}" data-tile="${i}">
+          <div class="plate">${pic(m.image, m.name)}</div><b>${esc(m.name)}</b>
+          <span class="num">${yuan(m.price_yuan)}</span>${toyKind([m.name, ...(m.tags || [])].join(" ")) ? `<span class="toy">${esc(toyKind([m.name, ...(m.tags || [])].join(" ")))}</span>` : ""}
+          <button class="btn ghost" data-add="${i}">${state.cart.get(m.code) ? "再来一份" : "加入"}</button></div>`).join("")}</div>
+        <p class="muted" style="font-size:12px;margin:2px 0 0">${esc(store)}的价格；加入后到「点餐」里会自动帮你叠券和积分。</p>`;
+      box.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => {
+        const m = items[Number(b.dataset.add)];
+        setQty(m.code, 1);
+        b.textContent = "再来一份"; b.closest(".tile").classList.add("added");
+        toast(`已加入 ${m.name}，去「点餐」看看怎么付最省`);
+      }));
+    }
+  }
+  const st = box.querySelector("[data-store]"); if (st) st.addEventListener("click", () => { closeDialog(); openSettings(); });
+  const mn = box.querySelector("[data-menu]"); if (mn) mn.addEventListener("click", () => { closeDialog(); go("order"); });
+}
+
 function campaignDialog(x) {
   const hasImg = x.image && !x.image.includes("img.example");
   const chips = x.days.slice(0, 12).map((d) => `<span class="${+d === +new Date(new Date().setHours(0, 0, 0, 0)) ? "on" : ""}">${md(d)}</span>`).join("");
-  openDialog(`${hasImg ? `<img class="camp-art" src="${esc(imgSrc(x.image))}" alt="" onerror="this.remove()">` : ""}
+  $("#dlg").classList.add("wide", "xwide");
+  openDialog(`<div class="camp-layout"><div class="camp-left">${hasImg ? `<img class="camp-art" src="${esc(imgSrc(x.image))}" alt="" onerror="this.outerHTML='<div class=&quot;camp-art-empty&quot;>${esc(emojiFor(x.title) === "🍽️" ? x.district.emoji : emojiFor(x.title))}</div>'">`
+      : `<div class="camp-art-empty">${esc(emojiFor(x.title) === "🍽️" ? x.district.emoji : emojiFor(x.title))}</div>`}</div><div class="camp-right">
     <h3>${esc(x.title)}</h3>
     <div class="camp-meta"><span class="chip ${x.when === "today" ? "gold" : ""}">${x.when === "today" ? "今天在做" : x.when === "soon" ? "即将开始" : "已经结束"}</span>
       <span class="chip">${x.district.emoji} ${esc(x.district.name)}</span>${x.toy ? `<span class="toy">${esc(x.toy)}</span>` : ""}</div>
     ${x.days.length > 1 ? `<div class="timeline" aria-label="活动日期">${chips}</div>` : x.range ? `<p class="camp-when">${esc(x.range)}</p>` : ""}
     <div class="camp-detail">${esc(x.detail || x.intro || "")}</div>
     ${x.toy ? `<p class="muted" style="font-size:13px">周边和玩具通常限量、先到先得，具体以门店和麦当劳 App 为准。</p>` : ""}
+    </div></div>
+    ${x.when !== "past" ? `<h4 style="margin:16px 0 8px">活动里的餐品</h4><div id="campProducts">${loader("在你的门店菜单里找这个活动的餐品…", "", true)}</div>` : ""}
     <div class="actions"><button class="btn ghost" data-close>关闭</button>${x.when !== "past" ? `<button class="btn ghost" data-remind>⏰ 提醒我</button><button class="btn gold" data-order>去点餐</button>` : ""}</div>`,
     (dlg) => {
       const b = dlg.querySelector("[data-order]"); if (b) b.addEventListener("click", () => { closeDialog(); go("order"); });
+      if (x.when !== "past") loadCampaignProducts(x);
       const r = dlg.querySelector("[data-remind]");
       if (r) r.addEventListener("click", () => {
         const next = x.when === "today" ? new Date() : x.next;
@@ -680,9 +823,10 @@ function campaignDialog(x) {
     });
 }
 function lotteryDialog(lot) {
+  $("#dlg").classList.add("wide");
   openDialog(`<h3>🎰 ${esc(lot.name)}</h3>
     <p class="muted">${esc(lot.status || "")}${lot.end ? " · 到 " + esc(String(lot.end).slice(0, 10)) : ""}${lot.next_cost ? " · " + esc(lot.next_cost) : ""}</p>
-    ${(lot.prizes || []).length ? `<div class="mine">${lot.prizes.map((p) => `<article><div class="plate">${pic(p.image, p.name)}</div><div><h3>${esc(p.name)}</h3><div class="muted" style="font-size:13px">${esc(p.type || "")}</div></div></article>`).join("")}</div>` : ""}
+    ${(lot.prizes || []).length ? `<div class="tiles wrap">${lot.prizes.map((p) => `<div class="tile"><div class="plate">${pic(p.image, p.name)}</div><b>${esc(p.name)}</b><small>${esc(p.type || "")}</small></div>`).join("")}</div>` : ""}
     <p class="muted" style="font-size:13px">这里只展示奖池，抽奖请在麦当劳 App 里进行；抽中的奖品在「我的券和积分」里能看到。</p>
     <div class="actions"><button class="btn" data-close>好的</button></div>`);
 }
@@ -693,7 +837,7 @@ async function loadSessions(e, city) {
   if (!document.getElementById("sessions")) return;
   if (d.status === "choose_city" && (d.cities || []).length) {
     box.innerHTML = `<p class="muted" style="font-size:13px">在哪个城市？</p><div class="map-filters">${d.cities.slice(0, 16).map((c) => `<button data-city="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
-    box.querySelectorAll("[data-city]").forEach((b) => b.addEventListener("click", () => { box.innerHTML = `<p class="muted">查询中…</p>`; loadSessions(e, b.dataset.city); }));
+    box.querySelectorAll("[data-city]").forEach((b) => b.addEventListener("click", () => { box.innerHTML = loader("查询场次…", "", true); loadSessions(e, b.dataset.city); }));
     return;
   }
   if (!d.ok) { box.innerHTML = `<p class="warn">${esc(d.error)}</p>`; return; }
@@ -710,7 +854,7 @@ async function loadSessions(e, city) {
 }
 
 async function renderCampaigns() {
-  const m = $("#main"); m.innerHTML = `<p class="loading">正在画活动地图…</p>`;
+  const m = $("#main"); m.innerHTML = `<h2>活动地图</h2>${loading("map", "正在画活动地图…")}`;
   const [d, pz, ev] = await Promise.all([run(["calendar"]), run(["prizes"]), run(["events"])]);
   if (!d.ok) return showError(m, d.error);
   const lot = pz.ok ? pz.lottery : null;
@@ -769,7 +913,7 @@ async function renderCampaigns() {
     openDialog(`${e.image ? `<img class="camp-art" src="${esc(imgSrc(e.image))}" alt="" onerror="this.remove()">` : ""}<h3>${esc(e.name)}</h3>
       <div class="camp-meta"><span class="chip">${esc(e.category || "")}</span>${e.price_yuan != null ? `<span class="chip gold">¥${e.price_yuan}</span>` : ""}${e.until ? `<span class="camp-when">报名到 ${esc(e.until)}</span>` : ""}</div>
       <div class="camp-detail">${esc(e.intro || "")}</div>
-      <div id="sessions"><p class="muted" style="font-size:13px">正在查最近的门店和场次…</p></div>
+      <div id="sessions">${loader("正在查最近的门店和场次…", "", true)}</div>
       <div class="actions"><button class="btn" data-close>好的</button></div>`);
     loadSessions(e);
   }));
@@ -779,7 +923,7 @@ async function renderCampaigns() {
 async function renderOrder() {
   const m = $("#main");
   if (!state.menu) {
-    m.innerHTML = `<p class="loading">正在打开门店菜单…</p>`;
+    m.innerHTML = `<h2>点餐</h2>${loader("正在打开门店菜单…", "", true)}${skeletonCards(8)}`;
     const d = await run(["menu", modeFlag(), "--limit", "500"]);
     if (!d.ok) {
       if (/地址/.test(d.error || "")) {
@@ -861,15 +1005,23 @@ function drawReceipt(busy = false, fresh = false) {
     return;
   }
   const d = state.plan;
-  if (!d || busy && !d) { w.innerHTML = `<div class="receipt"><div class="hd"><b>你的小票</b><span>正在算最省的付法…</span></div></div>`; return; }
-  if (!d.ok) { w.innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  if (!d || busy && !d) { w.innerHTML = `<div class="receipt"><div class="hd"><b>你的小票</b><span>正在算最省的付法…</span></div>${loader("把券和积分叠进来算一算", "", true)}<div class="skel skel-line" style="margin:8px 0"></div><div class="skel skel-line" style="width:70%"></div></div>`; return; }
+  if (!d.ok) {
+    const soldOut = /售罄|库存|沽清|不可售|已下架|暂停售卖|不在售/.test(d.error || "");
+    w.innerHTML = `<div class="fallback"><b>${soldOut ? "有餐品这家店现在卖完了" : "没算出来"}</b><br>${esc(d.error)}
+      <div class="inline"><button class="btn ghost" data-store>换一家门店</button><button class="btn ghost" id="clearBtn2">清空重选</button></div></div>`;
+    w.querySelector("[data-store]").addEventListener("click", () => openSettings());
+    $("#clearBtn2").addEventListener("click", () => { state.cart.clear(); state.plan = null; drawMenu(); drawReceipt(); });
+    return;
+  }
   const p = d.plan, q = d.quote, sc = d.scene || {};
   const stamp = { coupon: ["s-coupon", "用券"], points: ["s-points", "积分兑"], cash: ["s-cash", "现金"] };
   const rows = p.lines.map((l) => {
     const [cls, word] = stamp[l.pay_with] || stamp.cash;
     const how = l.pay_with === "coupon" ? esc(l.coupon) : l.pay_with === "points" ? `${(l.points || 0).toLocaleString()} 积分` : "";
     return `<div class="rline"><span class="what">${esc(l.item)}</span><span class="pay num">${l.pay_with !== "cash" ? `<span class="was">${yuan(l.price_yuan)}</span>` : ""}${yuan(l.pay_yuan)}</span>
-      <span class="how"><span><span class="stamp ${cls}">${word}</span> ${how}</span></span></div>`;
+      <span class="how"><span><span class="stamp ${cls}">${word}</span> ${how}</span>
+        <button class="rm" data-rm="${esc(l.code)}" aria-label="移除一份 ${esc(l.item)}">移除</button></span></div>`;
   }).join("");
   const promo = q && q.promo_saving_yuan ? `<div><span>门店活动再省</span><span class="num">-${yuan(q.promo_saving_yuan)}</span></div>` : "";
   const delivery = q && q.delivery_yuan ? `<div><span>配送费</span><span class="num">${yuan(q.delivery_yuan)}</span></div>` : "";
@@ -894,6 +1046,11 @@ function drawReceipt(busy = false, fresh = false) {
       <div class="extra"><span>${x.kind === "points" ? "🪙" : x.kind === "promo" ? "✌️" : "🎟"}</span><p>${esc(x.message)}</p>
       ${x.code ? `<button class="btn ghost" data-extra="${i}">加上</button>` : ""}</div>`).join("")}</div>` : ""}`;
   $("#clearBtn").addEventListener("click", () => { state.cart.clear(); state.plan = null; drawMenu(); drawReceipt(); });
+  w.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
+    const item = (state.menu || []).find((x) => x.code === b.dataset.rm);
+    setQty(b.dataset.rm, -1);
+    toast(`已移除一份${item ? item.name : ""}`);
+  }));
   $("#checkoutBtn").addEventListener("click", () => confirmOrder(d));
   w.querySelectorAll("[data-extra]").forEach((b) => b.addEventListener("click", () => setQty(d.suggestions[Number(b.dataset.extra)].code, 1)));
 }
@@ -910,10 +1067,14 @@ function confirmOrder(d) {
     (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", placeOrder));
 }
 async function placeOrder() {
-  setDialog(`<h3>正在下单…</h3><p class="muted">${state.plan && state.plan.plan.points_used ? "先兑换积分，再向门店核价、创建订单。" : "向门店核价、创建订单。"}</p>`);
+  setDialog(`<h3>正在下单…</h3>${loader(state.plan && state.plan.plan.points_used ? "先兑换积分，再向门店核价、创建订单" : "向门店核价、创建订单", "请不要关闭页面", true)}`);
   const d = await run(["order", ...cartArgs(), modeFlag(), "-y"]);
   if (!d.ok || d.status !== "ordered") {
-    setDialog(`<h3>没有下成功</h3><p class="err">${esc(d.error || "门店没有接单，请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`);
+    const soldOut = /售罄|库存|沽清|不可售|已下架|暂停售卖|不在售/.test(d.error || "");
+    setDialog(`<h3>${soldOut ? "有餐品卖完了" : "没有下成功"}</h3><p class="err">${esc(d.error || "门店没有接单，请稍后再试")}</p>
+      ${soldOut ? `<p class="muted">可以换一家门店，或者把卖完的那样换成别的。积分如果已经兑换成券，券还在你的账户里，下次点餐会自动用上。</p>` : ""}
+      <div class="actions"><button class="btn ghost" data-close>知道了</button>${soldOut ? `<button class="btn gold" data-store>换一家门店</button>` : ""}</div>`,
+      (dlg) => { const b = dlg.querySelector("[data-store]"); if (b) b.addEventListener("click", () => openSettings()); });
     return;
   }
   const o = d.order || {};
@@ -931,7 +1092,7 @@ async function placeOrder() {
 
 /* ---------------------------------------------------------------- assets */
 async function renderAssets() {
-  const m = $("#main"); m.innerHTML = `<p class="loading">正在查你的券和积分…</p>`;
+  const m = $("#main"); m.innerHTML = `<h2>我的券和积分</h2>${loading("assets", "正在查你的券和积分…")}`;
   const [d, pz] = await Promise.all([run(["portfolio"]), run(["prizes"])]);
   if (!d.ok) return showError(m, d.error);
   const mine = pz.ok ? pz.my_prizes || [] : [];
@@ -983,7 +1144,7 @@ async function claim() {
 
 /* ---------------------------------------------------------------- mall */
 async function renderMall() {
-  const m = $("#main"); m.innerHTML = `<p class="loading">正在给积分商城的商品估值…（每个商品要查一次详情，稍等）</p>`;
+  const m = $("#main"); m.innerHTML = `<h2>积分商城</h2>${loading("mall", "正在给积分商城的商品估值…", "每个商品都要查一次详情，商品多时要等十几秒")}`;
   const [d, acct] = await Promise.all([run(["market", "--limit", "40"]), run(["portfolio"])]);
   if (!d.ok) return showError(m, d.error);
   const items = d.items || [];
@@ -1016,7 +1177,7 @@ async function renderMall() {
   m.querySelectorAll("[data-spend]").forEach((b) => b.addEventListener("click", () => spendPlan(b.dataset.spend === "expiring")));
 }
 async function spendPlan(expiring) {
-  openDialog(`<h3>正在凑方案…</h3>`);
+  openDialog(`<h3>正在凑方案…</h3>${loader("在你的积分里凑出最值的兑换组合", "", true)}`);
   const args = ["spend", ...(expiring ? ["--expiring"] : []), "-n"];
   const d = await run(args);
   if (!d.ok) return setDialog(`<p class="err">${esc(d.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`);
@@ -1036,7 +1197,7 @@ async function spendPlan(expiring) {
 
 /* ---------------------------------------------------------------- orders */
 async function renderOrders() {
-  const m = $("#main"); m.innerHTML = `<p class="loading">正在查订单…</p>`;
+  const m = $("#main"); m.innerHTML = `<h2>订单</h2>${loading("orders", "正在查订单…")}`;
   const d = await run(["orders"]);
   if (!d.ok) return showError(m, d.error);
   const list = d.orders || [];
@@ -1055,7 +1216,7 @@ async function renderOrders() {
   showTrack(pick);
 }
 async function showTrack(oid) {
-  const t = $("#track"); t.innerHTML = `<p class="loading">查询进度…</p>`;
+  const t = $("#track"); t.innerHTML = `${loader("查询出餐进度…", "", true)}<div aria-hidden="true" style="display:grid;gap:10px">${sk("30%", 22)}${sk("100%", 10)}${sk("40%", 60, "margin:12px auto")}${sk("60%")}</div>`;
   const d = await run(["track", oid]);
   if (!d.ok) return showError(t, d.error);
   const o = d.order || {};
@@ -1105,7 +1266,7 @@ async function loadStore() {
 }
 async function openSettings(focus) {
   $("#dlg").classList.add("wide");
-  openDialog(`<h3>我的设置</h3><p class="loading">读取中…</p>`);
+  openDialog(`<h3>我的设置</h3>${loader("读取设置和收货地址…", "", true)}`);
   const [c, a] = await Promise.all([run(["config"]), run(["address"])]);
   const raw = (c.ok && c.raw) || {};
   const addrs = (a.ok && a.addresses) || [];
@@ -1201,8 +1362,9 @@ function setDialog(html, bind) {
   dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeDialog));
   if (bind) bind(dlg);
 }
-function closeDialog() { $("#dlg").close(); $("#dlg").classList.remove("wide"); }
+function closeDialog() { $("#dlg").close(); $("#dlg").classList.remove("wide", "xwide"); }
 $("#dlg").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDialog(); });
+$("#dlg").addEventListener("close", () => $("#dlg").classList.remove("wide", "xwide"));
 
 loadStore();
 go("today");

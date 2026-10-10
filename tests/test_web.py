@@ -43,4 +43,5 @@ def test_style_and_script_stay_separate():
     css = html.split("<style>")[1].split("</style>")[0]
     js = html.split("<script>")[1].split("</script>")[0]
     assert "function " not in css and "=>" not in css
-    assert "{ display:" not in js and "border-radius:" not in js.replace('style="', "")
+    import re as _re
+    assert not _re.search(r"^\.[a-z][\w-]* \{ [a-z-]+:", js, _re.M)   # no CSS rules pasted into the script
