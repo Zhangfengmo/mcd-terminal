@@ -365,6 +365,31 @@ class DemoClient:
         }
 
     # ---- calendar / time -----------------------------------------------
+    # ---- lottery (read-only) ----------------------------------------------
+    def _query_lottery_info(self) -> dict[str, Any]:
+        t = self.today
+        return {
+            "activityCode": "DEMO-LOTTERY", "activityName": "积分抽奖（演示数据）", "activityStatusText": "进行中",
+            "beginTime": f"{t - timedelta(days=5):%Y-%m-%d} 00:00:00", "endTime": f"{t + timedelta(days=20):%Y-%m-%d} 23:59:59",
+            "drawPoint": "100", "drawTypeText": "消耗积分抽奖", "availableTimes": None, "availablePoint": str(self.available),
+            "drawDecision": {"resourceEligible": True, "reason": None,
+                             "nextConsumption": {"type": "POINTS", "points": "100", "chances": 0, "text": "本次消耗 100 积分"}},
+            "prizes": [{"name": "麦旋风兑换券（演示）", "imageUrl": "", "typeText": "优惠券"},
+                       {"name": "汉堡造型钥匙扣（演示）", "imageUrl": "", "typeText": "实物"},
+                       {"name": "50 积分（演示）", "imageUrl": "", "typeText": "积分"}],
+        }
+
+    def _query_my_prizes(self, pageNum: str = "1", pageSize: str = "10") -> dict[str, Any]:
+        t = self.today
+        return {"pageNum": 1, "pageSize": int(pageSize), "hasMore": False, "nextCursor": None, "prizes": [
+            {"id": "P1", "name": "圆筒冰淇淋兑换券（演示）", "imageUrl": "", "prizeType": 1,
+             "recordTime": f"{t - timedelta(days=2):%Y-%m-%d} 12:03:00", "status": 1, "statusText": "可用",
+             "timeRemindText": "5 天后过期"},
+            {"id": "P0", "name": "20 积分（演示）", "imageUrl": "", "prizeType": 3,
+             "recordTime": f"{t - timedelta(days=9):%Y-%m-%d} 09:41:00", "status": 2, "statusText": "已领取",
+             "timeRemindText": None},
+        ]}
+
     def _now_time_info(self) -> dict[str, Any]:
         from datetime import datetime
         fixed = os.environ.get("MCD_DEMO_NOW")

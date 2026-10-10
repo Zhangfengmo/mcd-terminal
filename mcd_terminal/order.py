@@ -29,6 +29,9 @@ class MenuItem:
     name: str
     price_fen: int
     tags: tuple[str, ...] = ()
+    image: str = ""
+    original_fen: int | None = None
+    category: str = ""
 
     @property
     def second_half(self) -> bool:
@@ -114,8 +117,11 @@ def parse_menu(data: Any) -> list[MenuItem]:
         return []
     meals = data.get("meals") or {}
     tags: dict[str, list[str]] = {}
+    cats: dict[str, str] = {}
     for cat in data.get("categories") or []:
+        cname = re.sub(r"\s+", "", str(cat.get("name") or ""))
         for m in cat.get("meals") or []:
+            cats.setdefault(str(m.get("code")), cname)
             for t in m.get("tags") or []:
                 if t and t not in tags.setdefault(str(m.get("code")), []):
                     tags[str(m.get("code"))].append(str(t))
@@ -123,7 +129,9 @@ def parse_menu(data: Any) -> list[MenuItem]:
     for code, m in meals.items():
         price = yuan_to_fen((m or {}).get("currentPrice"))
         if m and m.get("name") and price is not None:
-            out.append(MenuItem(str(code), m["name"], price, tuple(tags.get(str(code), []))))
+            out.append(MenuItem(str(code), m["name"], price, tuple(tags.get(str(code), [])),
+                                image=str(m.get("image") or ""), original_fen=yuan_to_fen(m.get("originalPrice")),
+                                category=cats.get(str(code), "")))
     return out
 
 
@@ -238,7 +246,13 @@ def similar_items(want: str, menu: list[MenuItem], limit: int = 3) -> list[MenuI
 
 
 def match_menu(want: str, menu: list[MenuItem]) -> MenuItem | None:
-    """Best menu item for a keyword: exact name, else the shortest name containing it."""
+    """Best menu item for a keyword: exact name, else the shortest name containing it.
+
+    `code:1100` picks by menu code (the web page sends codes, so names never collide).
+    """
+    if want.startswith("code:"):
+        code = want[5:].strip()
+        return next((m for m in menu if m.code == code), None)
     w = _norm(want)
     if not w:
         return None

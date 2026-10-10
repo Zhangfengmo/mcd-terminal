@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>麦麦交易终端</title>
+<style>
+:root {
+  --slate: #22303a;
+  --slate-2: #2e3f4b;
+  --bg: #eef1f2;
+  --surface: #ffffff;
+  --ink: #1d2529;
+  --ink-2: #55636b;
+  --ink-3: #8a979e;
+  --line: #dde3e6;
+  --gold: #e8a317;      /* 积分 */
+  --gold-soft: #fdf2d6;
+  --tomato: #d44a2e;    /* 券 / 快过期 */
+  --tomato-soft: #fbe5df;
+  --cash: #7b8a92;      /* 现金 */
+  --save: #2f8a57;      /* 省下的钱 */
+  --save-soft: #e2f3e8;
+  --paper: #fffdf8;
+  --radius-s: 6px;
+  --radius-m: 12px;
+  --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", "Noto Sans Mono CJK SC", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #172128; --surface: #1f2b33; --ink: #edf1f2; --ink-2: #a9b6bc; --ink-3: #7d8b92; --line: #2f3e48;
+    --gold-soft: #3a3020; --tomato-soft: #3d2620; --save-soft: #1d3527; --paper: #fbf8f0;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.6;
+       -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+img { display: block; max-width: 100%; }
+.num { font-variant-numeric: tabular-nums; }
+.hidden { display: none !important; }
+
+/* ---------------------------------------------------------------- header */
+header { background: var(--slate); color: #f3f6f7; position: sticky; top: 0; z-index: 20; }
+.bar { max-width: 1200px; margin: 0 auto; padding: 14px 20px 0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-size: 19px; letter-spacing: .5px; }
+.brand small { color: #9fb1ba; font-size: 13px; }
+.demo-flag { background: var(--gold); color: #2b1d16; font-size: 12px; padding: 1px 8px; border-radius: 99px; font-weight: 600; }
+.store { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #cfdbe0; }
+.store button { background: transparent; border: 1px solid #4b5f6b; color: #e6edf0; border-radius: 99px; padding: 2px 12px; font-size: 13px; }
+.store button:hover { border-color: #8aa0ab; }
+.mode { display: inline-flex; background: var(--slate-2); border-radius: 99px; padding: 3px; }
+.mode button { border: 0; background: transparent; color: #b8c7ce; padding: 3px 14px; border-radius: 99px; font-size: 13px; }
+.mode button[aria-pressed="true"] { background: #f3f6f7; color: var(--slate); font-weight: 600; }
+nav { max-width: 1200px; margin: 0 auto; padding: 8px 12px 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav button { border: 0; background: transparent; color: #a9bcc5; padding: 10px 14px 12px; font-size: 15px; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav button[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); font-weight: 600; }
+main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+h2 { font-size: 22px; margin: 0 0 4px; letter-spacing: .3px; }
+h3 { font-size: 17px; margin: 0; }
+.sub { color: var(--ink-2); margin: 0 0 20px; }
+.muted { color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- shared bits */
+.btn { border: 0; border-radius: 99px; padding: 9px 20px; font-weight: 600; background: var(--slate); color: #fff; }
+.btn:hover { background: #33475a; }
+.btn.gold { background: var(--gold); color: #2b1d16; }
+.btn.gold:hover { background: #f1b230; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn:disabled { opacity: .45; cursor: default; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--bg); color: var(--ink-2); }
+.chip.gold { background: var(--gold-soft); color: #8a5d00; }
+.chip.tomato { background: var(--tomato-soft); color: var(--tomato); }
+.chip.save { background: var(--save-soft); color: var(--save); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.gold { color: var(--gold); } }
+.empty { text-align: center; color: var(--ink-2); padding: 48px 16px; }
+.empty .btn { margin-top: 12px; }
+.err { background: var(--tomato-soft); color: var(--tomato); border-radius: var(--radius-m); padding: 12px 16px; margin: 0 0 16px; }
+.loading { color: var(--ink-3); padding: 40px 0; text-align: center; }
+.plate { background: #fff; border-radius: 50%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; }
+.plate img { width: 86%; height: 86%; object-fit: contain; }
+.plate .emoji { font-size: 44px; }
+
+/* ---------------------------------------------------------------- today */
+.hello { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; margin-bottom: 28px; }
+.hello-main { background: var(--surface); border-radius: var(--radius-m); padding: 24px 26px; }
+.hello-main h2 { font-size: 26px; }
+.points-big { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 6px; }
+.points-big .num { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+.todo { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+.todo li { display: flex; gap: 12px; align-items: flex-start; }
+.todo .ic { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--bg); font-size: 15px; }
+.todo button { margin-left: 6px; }
+.linkish { background: none; border: 0; color: var(--tomato); padding: 0; font-weight: 600; }
+
+/* ---------------------------------------------------------------- campaigns */
+.poster-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.poster { background: var(--surface); border-radius: var(--radius-m); overflow: hidden; display: flex; flex-direction: column; text-align: left; border: 0; padding: 0; }
+.poster .art { aspect-ratio: 16 / 10; background: linear-gradient(135deg, #f6d27a, #e8a317); display: grid; place-items: center; overflow: hidden; }
+.poster .art img { width: 100%; height: 100%; object-fit: cover; }
+.poster .art .emoji { font-size: 56px; }
+.poster .body { padding: 14px 16px 16px; }
+.poster h3 { font-size: 16px; line-height: 1.45; }
+.poster p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+.day-group { margin: 30px 0 14px; display: flex; align-items: baseline; gap: 10px; }
+.day-group h3 { font-size: 18px; }
+.past .poster { opacity: .62; }
+
+.lottery { background: var(--slate); color: #eef3f5; border-radius: var(--radius-m); padding: 20px 22px; margin-bottom: 8px; }
+.lottery h3 { font-size: 19px; }
+.lottery .meta { color: #a9bcc5; font-size: 14px; margin: 4px 0 14px; }
+.pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+.prize { background: #2e3f4b; border-radius: 10px; padding: 10px; text-align: center; font-size: 13px; }
+.prize .plate { width: 64px; margin: 0 auto 6px; }
+.prize .plate .emoji { font-size: 30px; }
+.prize small { color: #a9bcc5; display: block; }
+.mine { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.mine article { background: var(--surface); border-radius: var(--radius-m); padding: 12px; display: flex; gap: 12px; align-items: center; }
+.mine .plate { width: 52px; flex: none; }
+.mine .plate .emoji { font-size: 26px; }
+.mine h3 { font-size: 14px; }
+.section-title { margin: 30px 0 4px; }
+
+/* ---------------------------------------------------------------- order */
+.order { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 26px; align-items: start; }
+.cats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.cats button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 14px; font-size: 14px; }
+.cats button[aria-pressed="true"] { background: var(--slate); color: #fff; border-color: var(--slate); }
+.search { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 9px 16px; margin-bottom: 14px; }
+.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.dish { background: var(--surface); border-radius: var(--radius-m); padding: 14px 12px 12px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.dish .plate { width: 74%; margin: 0 auto; }
+.dish .name { font-size: 14px; line-height: 1.35; min-height: 38px; }
+.dish .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.dish .price { font-weight: 700; }
+.dish .was { color: var(--ink-3); text-decoration: line-through; font-size: 12px; margin-left: 4px; font-weight: 400; }
+.dish .tags { display: flex; gap: 4px; flex-wrap: wrap; min-height: 20px; }
+.qty { display: inline-flex; align-items: center; gap: 2px; }
+.qty button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--gold); color: #2b1d16; font-weight: 700; font-size: 17px; line-height: 1; }
+.qty button.minus { background: var(--bg); color: var(--ink); }
+.qty span { min-width: 20px; text-align: center; font-weight: 700; }
+.dish.in-cart { outline: 2px solid var(--gold); }
+
+/* the receipt: the one loud thing on the page */
+.receipt-wrap { position: sticky; top: 130px; }
+.receipt { background: var(--paper); color: #2b2620; font-family: var(--mono); font-size: 13px; padding: 22px 20px 26px;
+           --tear: radial-gradient(circle at 8px 0, transparent 7px, var(--paper) 7.5px) 0 0 / 16px 10px repeat-x;
+           position: relative; filter: drop-shadow(0 10px 18px rgba(20, 30, 36, .16)); }
+.receipt::after { content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 10px; background: var(--tear); transform: rotate(180deg); }
+.receipt .hd { text-align: center; border-bottom: 1px dashed #b9b0a2; padding-bottom: 10px; margin-bottom: 10px; }
+.receipt .hd b { font-family: var(--font); font-size: 16px; display: block; }
+.receipt .hd span { color: #847a6d; font-size: 12px; }
+.rline { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 6px 0; border-bottom: 1px dotted #d8cfc1; }
+.rline .what { font-family: var(--font); font-size: 14px; }
+.rline .how { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 12px; color: #847a6d; }
+.rline .was { color: #a99f92; text-decoration: line-through; margin-right: 6px; }
+.pay { font-weight: 700; }
+.stamp { display: inline-block; font-family: var(--font); font-size: 11px; font-weight: 700; padding: 0 6px; border: 1.5px solid; border-radius: 3px; transform: rotate(-3deg); }
+.stamp.s-coupon { color: var(--tomato); }
+.stamp.s-points { color: #b57c00; }
+.stamp.s-cash { color: var(--cash); }
+.totals { margin-top: 12px; display: grid; gap: 3px; }
+.totals div { display: flex; justify-content: space-between; }
+.totals .big { font-size: 22px; font-weight: 800; margin-top: 4px; }
+.saved { margin: 14px auto 0; width: max-content; max-width: 100%; text-align: center; color: var(--save); border: 2.5px solid var(--save);
+         border-radius: 8px; padding: 4px 14px; transform: rotate(-4deg); font-family: var(--font); font-weight: 800; font-size: 18px; letter-spacing: 1px; }
+.saved small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0; }
+.receipt .note { font-size: 12px; color: #847a6d; margin-top: 10px; font-family: var(--font); }
+.extras { margin-top: 26px; display: grid; gap: 8px; }
+.extra { background: var(--surface); border-radius: var(--radius-m); padding: 10px 12px; display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.extra p { margin: 0; flex: 1; }
+.extra button { flex: none; }
+.checkout { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+.checkout .btn.gold { flex: 1; padding: 12px; font-size: 16px; }
+.checkout .btn.ghost { flex: none; padding: 12px 18px; }
+.campaign-hint { margin-top: 12px; font-size: 13px; color: var(--ink-2); }
+
+/* ---------------------------------------------------------------- assets */
+.assets { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
+.meter { background: var(--surface); border-radius: var(--radius-m); padding: 22px; }
+.meter .num.big { font-size: 46px; font-weight: 800; line-height: 1.1; }
+.bar-track { height: 10px; background: var(--bg); border-radius: 99px; overflow: hidden; margin: 14px 0 6px; display: flex; }
+.bar-track i { display: block; height: 100%; }
+.legend { display: flex; gap: 14px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.coupons { display: grid; gap: 12px; }
+.coupon { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; background: var(--surface); border-radius: var(--radius-m); overflow: hidden; position: relative; }
+.coupon::before, .coupon::after { content: ""; position: absolute; left: 89px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); }
+.coupon::before { top: -7px; } .coupon::after { bottom: -7px; }
+.coupon .left { align-self: stretch; display: grid; place-items: center; background: var(--tomato-soft); color: var(--tomato); border-right: 2px dashed var(--bg); text-align: center; padding: 10px 4px; }
+.coupon .left b { font-size: 22px; line-height: 1.1; display: block; }
+.coupon .left small { font-size: 11px; display: block; }
+.coupon .mid { padding: 12px 14px; }
+.coupon .mid h3 { font-size: 15px; }
+.coupon .days { padding: 0 18px; text-align: right; }
+.coupon .days b { font-size: 26px; display: block; line-height: 1; }
+.coupon.urgent .days b { color: var(--tomato); }
+.coupon .days small { color: var(--ink-3); font-size: 12px; }
+
+/* ---------------------------------------------------------------- mall */
+.mall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.goods { background: var(--surface); border-radius: var(--radius-m); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.goods .pic { aspect-ratio: 4 / 3; background: #fff; border-radius: var(--radius-s); display: grid; place-items: center; overflow: hidden; }
+.goods .pic img { width: 100%; height: 100%; object-fit: contain; }
+.goods .pic .emoji { font-size: 48px; }
+.goods h3 { font-size: 15px; line-height: 1.4; }
+.goods .pts { font-size: 20px; font-weight: 800; color: #b57c00; }
+.vbar { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+.vbar i { display: block; height: 100%; background: var(--gold); }
+.goods .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.goods .btn { padding: 6px 14px; font-size: 13px; }
+.spend { background: var(--surface); border-radius: var(--radius-m); padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.spend p { margin: 0; flex: 1; min-width: 220px; }
+
+/* ---------------------------------------------------------------- orders */
+.orders { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.olist { display: grid; gap: 10px; }
+.oitem { background: var(--surface); border-radius: var(--radius-m); padding: 14px 16px; text-align: left; border: 2px solid transparent; }
+.oitem[aria-current="true"] { border-color: var(--gold); }
+.oitem .row { display: flex; justify-content: space-between; gap: 10px; }
+.track { background: var(--surface); border-radius: var(--radius-m); padding: 24px; position: sticky; top: 130px; }
+.pickup { text-align: center; margin: 18px 0; }
+.pickup b { font-size: 64px; letter-spacing: 8px; line-height: 1; display: block; }
+.steps { display: flex; gap: 6px; margin: 16px 0; }
+.steps span { flex: 1; height: 6px; border-radius: 99px; background: var(--line); }
+.steps span.on { background: var(--save); }
+
+/* ---------------------------------------------------------------- dialogs */
+dialog { border: 0; border-radius: 16px; padding: 0; width: min(440px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(18, 26, 31, .55); }
+.dlg { padding: 24px; }
+.dlg h3 { font-size: 19px; margin-bottom: 10px; }
+.dlg ul { padding-left: 18px; margin: 10px 0; }
+.dlg .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.dlg label { display: block; font-size: 14px; color: var(--ink-2); margin: 10px 0 4px; }
+.dlg input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--bg); }
+.qr { width: 220px; height: 220px; margin: 14px auto; background: #fff; border-radius: 10px; padding: 6px; }
+.qr svg { width: 100%; height: 100%; }
+.warn { color: var(--tomato); font-size: 14px; }
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--slate); color: #fff; padding: 10px 18px; border-radius: 99px; z-index: 50; font-size: 14px; max-width: calc(100vw - 32px); }
+.camp-art { width: 100%; border-radius: 10px; margin-bottom: 12px; }
+.camp-detail { white-space: pre-line; color: var(--ink-2); font-size: 14px; max-height: 50vh; overflow: auto; }
+footer { text-align: center; color: var(--ink-3); font-size: 13px; padding: 0 16px 40px; }
+footer a { color: inherit; }
+
+/* ---------------------------------------------------------------- small screens */
+@media (max-width: 900px) {
+  .hello, .assets, .orders { grid-template-columns: 1fr; }
+  .order { grid-template-columns: 1fr; }
+  .receipt-wrap, .track { position: static; }
+  main { padding: 18px 16px 90px; }
+  .bar { padding: 12px 16px 0; }
+  .menu-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+.cartbar { display: none; }
+@media (max-width: 900px) {
+  .cartbar { display: flex; position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; background: var(--slate); color: #fff;
+             border-radius: 99px; padding: 8px 8px 8px 18px; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(18, 26, 31, .3); }
+  .cartbar span { flex: 1; font-size: 14px; }
+  .cartbar b { font-size: 17px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .receipt.printed { animation: print .45s ease-out; transform-origin: top; }
+  @keyframes print { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand"><b>🍟 麦麦交易终端</b><small>帮你点得最省</small><span class="demo-flag hidden" id="demoFlag">演示数据</span></div>
+    <div class="mode" role="group" aria-label="点餐方式">
+      <button data-mode="pickup" aria-pressed="true">到店自取</button>
+      <button data-mode="delivery" aria-pressed="false">外送</button>
+    </div>
+    <div class="store"><span id="storeName">门店加载中…</span><button id="changeStore">换门店</button></div>
+  </div>
+  <nav role="tablist" aria-label="页面">
+    <button role="tab" data-tab="today" aria-selected="true">今日</button>
+    <button role="tab" data-tab="order" aria-selected="false">点餐</button>
+    <button role="tab" data-tab="campaigns" aria-selected="false">活动</button>
+    <button role="tab" data-tab="assets" aria-selected="false">我的券和积分</button>
+    <button role="tab" data-tab="mall" aria-selected="false">积分商城</button>
+    <button role="tab" data-tab="orders" aria-selected="false">订单</button>
+  </nav>
+</header>
+
+<main id="main"></main>
+<footer>和终端里的 mcd 用同一个引擎；扣积分、下单前都会先问你。遇到问题或有想法，欢迎 <a href="https://github.com/Zhangfengmo/mcd-terminal/issues" target="_blank" rel="noopener">提 Issue</a>。</footer>
+<div class="cartbar hidden" id="cartbar"><span id="cartbarText"></span><button class="btn gold" id="cartbarBtn">看小票</button></div>
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+
+<script>
+"use strict";
+const SECRET = "__MCD_SECRET__";
+const DEMO = __MCD_DEMO__;
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const yuan = (v) => (v == null ? "—" : "¥" + Number(v).toFixed(2));
+const state = { tab: "today", mode: "pickup", menu: null, cart: new Map(), cat: "全部", q: "", plan: null, planSeq: 0, lastOrder: null };
+if (DEMO) $("#demoFlag").classList.remove("hidden");
+
+async function run(args) {
+  const res = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json", "X-Mcd-Secret": SECRET },
+                                         body: JSON.stringify({ args }) });
+  if (!res.ok) throw new Error(res.status === 403 ? "这个页面已经失效，请回到终端重新运行 mcd web" : "请求失败（" + res.status + "）");
+  return res.json();
+}
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.append(t);
+  setTimeout(() => t.remove(), 3200);
+}
+const modeFlag = () => (state.mode === "delivery" ? "-d" : "-p");
+
+/* food emoji when a picture is missing (demo data, or an image that won't load) */
+function emojiFor(name) {
+  const n = name || "";
+  const table = [["薯", "🍟"], ["鸡翅", "🍗"], ["鸡", "🍗"], ["堡", "🍔"], ["巨无霸", "🍔"], ["咖啡", "☕"], ["拿铁", "☕"], ["美式", "☕"], ["奶铁", "☕"],
+    ["可乐", "🥤"], ["饮", "🥤"], ["汁", "🧃"], ["冰淇淋", "🍦"], ["圆筒", "🍦"], ["麦旋风", "🍨"], ["派", "🥧"], ["满分", "🥯"], ["早餐", "🥯"], ["卷", "🌯"],
+    ["派对", "🎉"], ["周边", "🎁"], ["钥匙扣", "🔑"], ["帽", "🧢"], ["鞋", "👟"], ["键", "⌨️"], ["品鉴", "🍽️"]];
+  for (const [k, e] of table) if (n.includes(k)) return e;
+  return "🍽️";
+}
+function pic(url, name, cls = "") {
+  const e = esc(emojiFor(name));
+  if (!url || url.includes("img.example")) return `<span class="emoji ${cls}" aria-hidden="true">${e}</span>`;
+  return `<img src="${esc(imgSrc(url))}" alt="${esc(name)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;emoji&quot; aria-hidden=&quot;true&quot;>${e}</span>'">`;
+}
+/* pictures go through the local server, which only fetches from McDonald's own image hosts */
+const imgSrc = (url) => "/api/img?s=" + encodeURIComponent(SECRET) + "&u=" + encodeURIComponent(url);
+function showError(where, msg) { where.innerHTML = `<div class="err">${esc(msg)}</div>`; }
+
+/* ---------------------------------------------------------------- tabs */
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.tab)));
+document.querySelectorAll(".mode button").forEach((b) => b.addEventListener("click", () => {
+  state.mode = b.dataset.mode;
+  document.querySelectorAll(".mode button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  state.menu = null; state.plan = null;
+  if (state.tab === "order") renderOrder();
+}));
+$("#changeStore").addEventListener("click", changeStore);
+
+function go(tab) {
+  state.tab = tab;
+  $("#cartbar").classList.add("hidden");
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.tab === tab)));
+  ({ today: renderToday, order: renderOrder, campaigns: renderCampaigns, assets: renderAssets, mall: renderMall, orders: renderOrders })[tab]();
+  window.scrollTo({ top: 0 });
+}
+
+/* ---------------------------------------------------------------- today */
+async function renderToday() {
+  const m = $("#main"); m.innerHTML = `<p class="loading">正在整理今天的情况…</p>`;
+  const [d, cal] = await Promise.all([run(["today"]), run(["calendar"])]);
+  if (!d.ok) return showError(m, d.error);
+  const p = d.points || {};
+  const todo = [];
+  if (p.expiring_soon) todo.push(["⏳", `${p.expiring_soon.toLocaleString()} 积分两个月内过期`, `<button class="linkish" data-go="mall">换成吃的</button>`]);
+  for (const c of d.expiring_coupons || []) todo.push(["🎟", `${esc(c.title)} ${c.days_left === 0 ? "今天" : c.days_left === 1 ? "明天" : c.days_left + " 天后"}到期`, `<button class="linkish" data-go="order">去用</button>`]);
+  if ((d.claimable || []).length) todo.push(["🎁", `麦麦省还有 ${d.claimable.length} 张券没领`, `<button class="linkish" id="claimBtn">一键领取</button>`]);
+  if (!todo.length) todo.push(["✅", "券和积分都不着急，放心攒着", ""]);
+  const today = (cal.campaigns || []).filter((x) => (x.tag || "").startsWith("今"));
+  m.innerHTML = `
+    <section class="hello">
+      <div class="hello-main">
+        <h2>${esc(d.greeting || "你好")}</h2>
+        <p class="sub" style="margin:0">今天想吃点什么？手上的券和积分，我帮你算好怎么用最省。</p>
+        <div class="points-big"><span class="num">${(p.available ?? 0).toLocaleString()}</span><span class="muted">积分可用</span></div>
+        <ul class="todo">${todo.map(([i, t, a]) => `<li><span class="ic">${i}</span><span>${t}${a}</span></li>`).join("")}</ul>
+        <p style="margin:22px 0 0"><button class="btn gold" data-go="order">开始点餐</button></p>
+      </div>
+      <div>${today.length ? posterRow(today.slice(0, 2), "today") : `<div class="hello-main"><h3>今天没有新活动</h3><p class="muted">看看最近的活动 <button class="linkish" data-go="campaigns">全部活动</button></p></div>`}</div>
+    </section>`;
+  m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
+  bindPosters(m, today);
+  const cb = $("#claimBtn"); if (cb) cb.addEventListener("click", claim);
+}
+
+/* ---------------------------------------------------------------- campaigns */
+function posterRow(list, key) {
+  return `<div class="poster-row">${list.map((c, i) => `
+    <button class="poster" data-poster="${key}-${i}">
+      <div class="art">${pic(c.image, c.title)}</div>
+      <div class="body"><h3>${esc(c.title)}</h3><p>${esc(c.intro || "")}</p></div>
+    </button>`).join("")}</div>`;
+}
+function bindPosters(root, list, key = "today") {
+  root.querySelectorAll(`[data-poster^="${key}-"]`).forEach((b) => b.addEventListener("click", () => {
+    const c = list[Number(b.dataset.poster.split("-")[1])];
+    openDialog(`${c.image && !c.image.includes("img.example") ? `<img class="camp-art" src="${esc(imgSrc(c.image))}" alt="" onerror="this.remove()">` : ""}
+      <h3>${esc(c.title)}</h3><p class="muted" style="margin:0 0 10px">${esc(c.day)} · ${esc(c.tag)}</p>
+      <div class="camp-detail">${esc(c.detail || c.intro || "")}</div>
+      <div class="actions"><button class="btn ghost" data-close>关闭</button><button class="btn gold" data-order>去点餐</button></div>`,
+      (dlg) => dlg.querySelector("[data-order]").addEventListener("click", () => { closeDialog(); go("order"); }));
+  }));
+}
+async function renderCampaigns() {
+  const m = $("#main"); m.innerHTML = `<p class="loading">正在拉取活动日历…</p>`;
+  const [d, pz] = await Promise.all([run(["calendar"]), run(["prizes"])]);
+  if (!d.ok) return showError(m, d.error);
+  const all = d.campaigns || [];
+  const lot = pz.ok ? pz.lottery : null;
+  const lotteryHtml = lot ? `<section class="lottery">
+      <h3>🎰 ${esc(lot.name)}</h3>
+      <p class="meta">${esc(lot.status || "")}${lot.end ? " · 到 " + esc(String(lot.end).slice(0, 10)) : ""}${lot.next_cost ? " · " + esc(lot.next_cost) : ""}${lot.reason ? " · " + esc(lot.reason) : ""}</p>
+      ${(lot.prizes || []).length ? `<div class="pool">${lot.prizes.map((p) => `<div class="prize"><div class="plate">${pic(p.image, p.name)}</div>${esc(p.name)}<small>${esc(p.type || "")}</small></div>`).join("")}</div>` : ""}
+      <p class="meta" style="margin:14px 0 0">这里只展示奖池；要抽奖请在麦当劳 App 里进行。抽中的奖品在「我的券和积分」里能看到。</p>
+    </section>` : "";
+  if (!all.length) { m.innerHTML = lotteryHtml + `<div class="empty">最近没有活动，过几天再来看看。</div>`; return; }
+  const groups = [];
+  for (const c of all) {
+    const key = c.day + "|" + c.tag;
+    let g = groups.find((x) => x.key === key);
+    if (!g) groups.push(g = { key, day: c.day, tag: c.tag, items: [] });
+    g.items.push(c);
+  }
+  const order = (t) => (t.startsWith("今") ? 0 : t.includes("即将") ? 1 : 2);
+  groups.sort((a, b) => order(a.tag) - order(b.tag));
+  m.innerHTML = `<h2>活动</h2><p class="sub">麦当劳活动日历：今天在做的、马上开始的，还有刚结束的。点开看详情。</p>` + lotteryHtml +
+    groups.map((g, gi) => `<section class="${order(g.tag) === 2 ? "past" : ""}">
+      <div class="day-group"><h3>${esc(g.day)}</h3><span class="chip ${order(g.tag) === 0 ? "gold" : ""}">${esc(g.tag)}</span></div>
+      ${posterRow(g.items, "g" + gi)}</section>`).join("");
+  groups.forEach((g, gi) => bindPosters(m, g.items, "g" + gi));
+}
+
+/* ---------------------------------------------------------------- order */
+async function renderOrder() {
+  const m = $("#main");
+  if (!state.menu) {
+    m.innerHTML = `<p class="loading">正在打开门店菜单…</p>`;
+    const d = await run(["menu", modeFlag(), "--limit", "500"]);
+    if (!d.ok) { showError(m, d.error); if (/地址/.test(d.error || "")) m.insertAdjacentHTML("beforeend", `<p class="muted">外送需要先在终端里添加收货地址：<code>mcd address add</code></p>`); return; }
+    state.menu = d.items || [];
+    $("#storeName").textContent = (d.scene && d.scene.store) || d.store || "";
+  }
+  const cats = ["全部", ...new Set(state.menu.map((x) => x.category).filter(Boolean))];
+  m.innerHTML = `
+    <div class="order">
+      <section>
+        <h2>点餐</h2><p class="sub">挑好想吃的，右边的小票会实时算出每样怎么付最省：用券、用积分，还是付现金。</p>
+        <input class="search" id="search" type="search" placeholder="搜一搜，比如 麦辣、薯条、拿铁" value="${esc(state.q)}">
+        ${cats.length > 2 ? `<div class="cats">${cats.map((c) => `<button data-cat="${esc(c)}" aria-pressed="${c === state.cat}">${esc(c)}</button>`).join("")}</div>` : ""}
+        <div class="menu-grid" id="menuGrid"></div>
+      </section>
+      <aside class="receipt-wrap" id="receiptWrap"></aside>
+    </div>`;
+  $("#search").addEventListener("input", (e) => { state.q = e.target.value.trim(); drawMenu(); });
+  m.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => {
+    state.cat = b.dataset.cat; m.querySelectorAll("[data-cat]").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); drawMenu();
+  }));
+  drawMenu(); drawReceipt();
+}
+function drawMenu() {
+  const grid = $("#menuGrid"); if (!grid) return;
+  const list = state.menu.filter((x) => (state.cat === "全部" || x.category === state.cat) && (!state.q || x.name.includes(state.q)));
+  if (!list.length) { grid.innerHTML = `<p class="muted">没找到「${esc(state.q)}」，换个词试试。</p>`; return; }
+  grid.innerHTML = list.map((x) => {
+    const n = state.cart.get(x.code) || 0;
+    const tags = (x.tags || []).slice(0, 2).map((t) => `<span class="chip ${/半价|第二份|立省|特惠/.test(t) ? "tomato" : ""}">${esc(t)}</span>`).join("");
+    return `<article class="dish ${n ? "in-cart" : ""}">
+      <div class="plate">${pic(x.image, x.name)}</div>
+      <div class="name">${esc(x.name)}</div>
+      <div class="tags">${tags}</div>
+      <div class="row"><span class="price num">${yuan(x.price_yuan)}${x.original_price_yuan ? `<span class="was">${yuan(x.original_price_yuan)}</span>` : ""}</span>
+        <span class="qty">${n ? `<button class="minus" data-dec="${esc(x.code)}" aria-label="少一份">−</button><span class="num">${n}</span>` : ""}<button data-inc="${esc(x.code)}" aria-label="加一份 ${esc(x.name)}">+</button></span></div>
+    </article>`;
+  }).join("");
+  grid.querySelectorAll("[data-inc]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.inc, 1)));
+  grid.querySelectorAll("[data-dec]").forEach((b) => b.addEventListener("click", () => setQty(b.dataset.dec, -1)));
+}
+function setQty(code, delta) {
+  const n = Math.max(0, (state.cart.get(code) || 0) + delta);
+  n ? state.cart.set(code, n) : state.cart.delete(code);
+  drawMenu(); schedulePlan();
+}
+let planTimer;
+function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(computePlan, 350); drawReceipt(true); }
+const cartArgs = () => [...state.cart].map(([code, n]) => `code:${code}${n > 1 ? "x" + n : ""}`);
+async function computePlan() {
+  if (!state.cart.size) { state.plan = null; drawReceipt(); return; }
+  const seq = ++state.planSeq;
+  const d = await run(["order", ...cartArgs(), modeFlag(), "-n"]);
+  if (seq !== state.planSeq) return;  // a newer cart is on its way
+  state.plan = d; drawReceipt(false, true);
+}
+function drawCartBar() {
+  const bar = $("#cartbar");
+  const n = [...state.cart.values()].reduce((a, b) => a + b, 0);
+  if (state.tab !== "order" || !n) { bar.classList.add("hidden"); return; }
+  const d = state.plan;
+  const pay = d && d.ok ? (d.quote ? d.quote.pay_yuan : d.plan.pay_yuan) : null;
+  $("#cartbarText").innerHTML = `已选 ${n} 样${pay != null ? ` · 实付 <b class="num">${yuan(pay)}</b>` : " · 计算中…"}`;
+  bar.classList.remove("hidden");
+}
+$("#cartbarBtn").addEventListener("click", () => $("#receiptWrap") && $("#receiptWrap").scrollIntoView({ behavior: "smooth" }));
+function drawReceipt(busy = false, fresh = false) {
+  drawCartBar();
+  const w = $("#receiptWrap"); if (!w) return;
+  if (!state.cart.size) {
+    w.innerHTML = `<div class="receipt"><div class="hd"><b>你的小票</b><span>还空着</span></div><p class="note">点左边的 + 加到这里，我会把你的券和积分叠进来，算出整单最省的付法。</p></div>`;
+    return;
+  }
+  const d = state.plan;
+  if (!d || busy && !d) { w.innerHTML = `<div class="receipt"><div class="hd"><b>你的小票</b><span>正在算最省的付法…</span></div></div>`; return; }
+  if (!d.ok) { w.innerHTML = `<div class="err">${esc(d.error)}</div>`; return; }
+  const p = d.plan, q = d.quote, sc = d.scene || {};
+  const stamp = { coupon: ["s-coupon", "用券"], points: ["s-points", "积分兑"], cash: ["s-cash", "现金"] };
+  const rows = p.lines.map((l) => {
+    const [cls, word] = stamp[l.pay_with] || stamp.cash;
+    const how = l.pay_with === "coupon" ? esc(l.coupon) : l.pay_with === "points" ? `${(l.points || 0).toLocaleString()} 积分` : "";
+    return `<div class="rline"><span class="what">${esc(l.item)}</span><span class="pay num">${l.pay_with !== "cash" ? `<span class="was">${yuan(l.price_yuan)}</span>` : ""}${yuan(l.pay_yuan)}</span>
+      <span class="how"><span><span class="stamp ${cls}">${word}</span> ${how}</span></span></div>`;
+  }).join("");
+  const promo = q && q.promo_saving_yuan ? `<div><span>门店活动再省</span><span class="num">-${yuan(q.promo_saving_yuan)}</span></div>` : "";
+  const delivery = q && q.delivery_yuan ? `<div><span>配送费</span><span class="num">${yuan(q.delivery_yuan)}</span></div>` : "";
+  const payNow = q ? q.pay_yuan : p.pay_yuan;
+  const saved = Math.max(0, p.original_yuan - payNow + (q ? q.delivery_yuan || 0 : 0));
+  w.innerHTML = `
+    <div class="receipt ${fresh ? "printed" : ""}">
+      <div class="hd"><b>${esc(sc.store || "")}</b><span>${esc(sc.label || "")}${busy ? " · 重新计算中…" : ""}</span></div>
+      ${rows}
+      <div class="totals num">
+        <div><span>原价</span><span>${yuan(p.original_yuan)}</span></div>
+        ${p.points_used ? `<div><span>用积分</span><span>${p.points_used.toLocaleString()}</span></div>` : ""}
+        ${promo}${delivery}
+        <div class="big"><span>实付</span><span>${yuan(payNow)}</span></div>
+      </div>
+      ${saved > 0.009 ? `<div class="saved">省 ${yuan(saved)}<small>${p.coupons_used ? p.coupons_used + " 张券" : ""}${p.coupons_used && p.points_used ? " + " : ""}${p.points_used ? p.points_used.toLocaleString() + " 积分" : ""}${!p.coupons_used && !p.points_used ? "门店活动" : ""}</small></div>` : ""}
+      ${q ? `<p class="note">实付已向门店实时核价${q.delivery_yuan ? "，含配送费" : ""}。</p>` : ""}
+    </div>
+    <div class="checkout"><button class="btn gold" id="checkoutBtn">${p.points_used ? "兑积分并下单" : "下单"} ${yuan(payNow)}</button><button class="btn ghost" id="clearBtn">清空</button></div>
+    ${(d.campaigns_today || []).filter((c) => c.in_cart).map((c) => `<p class="campaign-hint">📅 今天有相关活动：${esc(c.title)}</p>`).join("")}
+    ${(d.suggestions || []).length ? `<div class="extras">${d.suggestions.map((x, i) => `
+      <div class="extra"><span>${x.kind === "points" ? "🪙" : x.kind === "promo" ? "✌️" : "🎟"}</span><p>${esc(x.message)}</p>
+      ${x.code ? `<button class="btn ghost" data-extra="${i}">加上</button>` : ""}</div>`).join("")}</div>` : ""}`;
+  $("#clearBtn").addEventListener("click", () => { state.cart.clear(); state.plan = null; drawMenu(); drawReceipt(); });
+  $("#checkoutBtn").addEventListener("click", () => confirmOrder(d));
+  w.querySelectorAll("[data-extra]").forEach((b) => b.addEventListener("click", () => setQty(d.suggestions[Number(b.dataset.extra)].code, 1)));
+}
+function confirmOrder(d) {
+  const p = d.plan, q = d.quote;
+  const redeem = p.lines.filter((l) => l.pay_with === "points");
+  openDialog(`<h3>确认下单</h3>
+    <p>${esc((d.scene || {}).store || "")} · ${esc((d.scene || {}).label || "")}</p>
+    <ul>${p.lines.map((l) => `<li>${esc(l.item)}：${l.pay_with === "coupon" ? "用券 " + esc(l.coupon) : l.pay_with === "points" ? "用 " + l.points + " 积分兑换" : "现金"}</li>`).join("")}</ul>
+    <p>实付 <b class="num">${yuan(q ? q.pay_yuan : p.pay_yuan)}</b>${p.points_used ? `，用 <b class="num">${p.points_used.toLocaleString()}</b> 积分` : ""}</p>
+    ${redeem.length ? `<p class="warn">积分会先兑换成券，兑换后不能撤销。</p>` : ""}
+    <p class="muted">下单后用手机扫码付款，付款前订单不会制作。</p>
+    <div class="actions"><button class="btn ghost" data-close>再想想</button><button class="btn gold" data-yes>确认下单</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", placeOrder));
+}
+async function placeOrder() {
+  setDialog(`<h3>正在下单…</h3><p class="muted">${state.plan && state.plan.plan.points_used ? "先兑换积分，再向门店核价、创建订单。" : "向门店核价、创建订单。"}</p>`);
+  const d = await run(["order", ...cartArgs(), modeFlag(), "-y"]);
+  if (!d.ok || d.status !== "ordered") {
+    setDialog(`<h3>没有下成功</h3><p class="err">${esc(d.error || "门店没有接单，请稍后再试")}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`);
+    return;
+  }
+  const o = d.order || {};
+  state.lastOrder = o.order_id; state.cart.clear(); state.plan = null; drawMenu(); drawReceipt();
+  const url = o.pay_url || "";
+  let qr = "";
+  try { const r = await fetch("/api/qr?data=" + encodeURIComponent(url), { headers: { "X-Mcd-Secret": SECRET } }); if (r.ok) qr = await r.text(); } catch (e) {}
+  setDialog(`<h3>下单成功，扫码付款</h3>
+    <p class="muted">订单 ${esc(o.order_id || "")} · 实付 <b class="num">${yuan(o.pay_yuan)}</b></p>
+    ${qr ? `<div class="qr">${qr}</div>` : ""}
+    <p style="text-align:center"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">在这台电脑上打开付款页</a></p>
+    <div class="actions"><button class="btn ghost" data-close>关闭</button><button class="btn gold" data-track>看出餐进度</button></div>`,
+    (dlg) => dlg.querySelector("[data-track]").addEventListener("click", () => { closeDialog(); go("orders"); }));
+}
+
+/* ---------------------------------------------------------------- assets */
+async function renderAssets() {
+  const m = $("#main"); m.innerHTML = `<p class="loading">正在查你的券和积分…</p>`;
+  const [d, pz] = await Promise.all([run(["portfolio"]), run(["prizes"])]);
+  if (!d.ok) return showError(m, d.error);
+  const mine = pz.ok ? pz.my_prizes || [] : [];
+  const p = d.points || {};
+  const total = Math.max(1, p.available || 0);
+  const soon = Math.min(p.expiring_soon || 0, total);
+  const coupons = (d.coupons || []).slice().sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999));
+  m.innerHTML = `<h2>我的券和积分</h2><p class="sub">按到期时间排好了，越靠前越该先用。</p>
+    <div class="assets">
+      <section class="meter">
+        <div class="muted">可用积分</div>
+        <div class="num big">${(p.available ?? 0).toLocaleString()}</div>
+        <div class="bar-track" aria-hidden="true"><i style="width:${(soon / total) * 100}%;background:var(--tomato)"></i><i style="width:${100 - (soon / total) * 100}%;background:var(--gold)"></i></div>
+        <div class="legend"><span><i style="background:var(--tomato)"></i>两个月内过期 ${soon.toLocaleString()}</span><span><i style="background:var(--gold)"></i>不着急 ${(total - soon).toLocaleString()}</span></div>
+        <p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">
+          ${soon ? `<button class="btn gold" data-go="mall">把快过期的换成吃的</button>` : ""}
+          <button class="btn ghost" id="claimBtn2">领麦麦省的券</button></p>
+      </section>
+      <section class="coupons">${coupons.length ? coupons.map((c) => `
+        <article class="coupon ${c.days_left != null && c.days_left <= 3 ? "urgent" : ""}">
+          <div class="left"><div><b class="num">${c.price_yuan != null ? "¥" + c.price_yuan : "券"}</b><small>用券价</small></div></div>
+          <div class="mid"><h3>${esc(c.title)}</h3><div class="muted" style="font-size:13px">${esc(c.tags || "")}${c.expires ? " · " + esc(c.expires) + " 到期" : ""}</div></div>
+          <div class="days">${c.days_left != null ? `<b class="num">${c.days_left === 0 ? "今天" : c.days_left}</b><small>${c.days_left === 0 ? "到期" : "天后到期"}</small>` : ""}</div>
+        </article>`).join("") : `<div class="empty">还没有优惠券。<br><button class="btn gold" id="claimBtn3">去麦麦省领券</button></div>`}</section>
+    </div>
+    ${mine.length ? `<h3 class="section-title">抽中的奖品</h3><p class="muted" style="margin:0">积分抽奖抽到的东西，按中奖时间排列。</p>
+      <div class="mine">${mine.map((x) => `<article><div class="plate">${pic(x.image, x.name)}</div>
+        <div><h3>${esc(x.name)}</h3><div class="muted" style="font-size:13px">${esc(x.status || "")}${x.remind ? " · " + esc(x.remind) : ""}</div>
+        <div class="muted" style="font-size:12px">${esc(String(x.won_at || "").slice(0, 10))} 抽中</div></div></article>`).join("")}</div>` : ""}`;
+  m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
+  for (const id of ["claimBtn2", "claimBtn3"]) { const b = document.getElementById(id); if (b) b.addEventListener("click", claim); }
+}
+async function claim() {
+  const d = await run(["claim"]);
+  if (!d.ok) return toast(d.error);
+  if (d.status === "nothing_to_do") return toast("能领的都领过了");
+  openDialog(`<h3>麦麦省领券</h3><p>可以领 ${(d.claimable || []).length} 张：</p><ul>${(d.claimable || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    <div class="actions"><button class="btn ghost" data-close>先不了</button><button class="btn gold" data-yes>全部领取</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+      const r = await run(["claim", "-y"]); closeDialog();
+      toast(r.ok ? `领好了，成功 ${r.succeeded ?? (r.claimed || []).length} 张` : r.error);
+      if (state.tab === "assets") renderAssets(); else if (state.tab === "today") renderToday();
+    }));
+}
+
+/* ---------------------------------------------------------------- mall */
+async function renderMall() {
+  const m = $("#main"); m.innerHTML = `<p class="loading">正在给积分商城的商品估值…（每个商品要查一次详情，稍等）</p>`;
+  const [d, acct] = await Promise.all([run(["market", "--limit", "40"]), run(["portfolio"])]);
+  if (!d.ok) return showError(m, d.error);
+  const items = d.items || [];
+  const hi = Math.max(1, ...items.map((i) => i.fen_per_point || 0));
+  const pts = (acct.points || {}).available ?? 0;
+  m.innerHTML = `<h2>积分商城</h2><p class="sub">按“每积分值多少钱”排好了。折扣券兑换后到店还要按券价付钱，价值已经减掉这部分。</p>
+    <div class="spend"><p>你有 <b class="num">${pts.toLocaleString()}</b> 积分。让我在这些积分里凑出最值的兑换组合？</p>
+      <button class="btn ghost" data-spend="expiring">只花快过期的</button><button class="btn gold" data-spend="all">算一个清仓方案</button></div>
+    ${items.length ? `<div class="mall-grid">${items.map((i, k) => `
+      <article class="goods">
+        <div class="pic">${pic(i.image, i.name)}</div>
+        <h3>${esc(i.name)}</h3>
+        <div class="row"><span class="pts num">${i.points.toLocaleString()} 积分</span>${i.in_store_only ? `<span class="chip">到店用</span>` : i.physical ? `<span class="chip">实物</span>` : ""}</div>
+        ${i.fen_per_point ? `<div class="vbar" aria-hidden="true"><i style="width:${(i.fen_per_point / hi) * 100}%"></i></div>
+          <div class="row"><span>值 ${yuan(i.value_yuan)}${i.use_price_yuan ? `（到店再付 ${yuan(i.use_price_yuan)}）` : ""}</span><span class="num">${i.fen_per_point.toFixed(2)} 分/积分</span></div>`
+          : `<div class="row"><span class="muted">${i.use_price_yuan ? "到店再付 " + yuan(i.use_price_yuan) + " · " : ""}没法和单品比价</span></div>`}
+        <div class="row"><span></span><button class="btn ghost" data-buy="${k}" ${!i.sku_id || i.points > pts || i.physical ? "disabled" : ""}>${i.points > pts ? "积分不够" : i.physical ? "去终端兑换" : "兑换"}</button></div>
+      </article>`).join("")}</div>` : `<div class="empty">现在没有可以用积分兑换的商品。</div>`}`;
+  m.querySelectorAll("[data-buy]").forEach((b) => b.addEventListener("click", () => {
+    const i = items[Number(b.dataset.buy)];
+    openDialog(`<h3>兑换 ${esc(i.name)}</h3><p>用 <b class="num">${i.points.toLocaleString()}</b> 积分。</p>
+      ${i.use_price_yuan ? `<p>兑换后是一张券，到店点这个时还要付 <b>${yuan(i.use_price_yuan)}</b>。</p>` : ""}
+      <p class="warn">积分扣除后不能撤销。</p>
+      <div class="actions"><button class="btn ghost" data-close>先不了</button><button class="btn gold" data-yes>确认兑换</button></div>`,
+      (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+        const r = await run(["buy", String(i.sku_id), "-y"]); closeDialog();
+        toast(r.ok ? "换好了，券已经到账" : r.error); if (r.ok) renderMall();
+      }));
+  }));
+  m.querySelectorAll("[data-spend]").forEach((b) => b.addEventListener("click", () => spendPlan(b.dataset.spend === "expiring")));
+}
+async function spendPlan(expiring) {
+  openDialog(`<h3>正在凑方案…</h3>`);
+  const args = ["spend", ...(expiring ? ["--expiring"] : []), "-n"];
+  const d = await run(args);
+  if (!d.ok) return setDialog(`<p class="err">${esc(d.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`);
+  if (d.status === "nothing_to_do") return setDialog(`<h3>不用着急</h3><p>近两个月没有积分过期。</p><div class="actions"><button class="btn" data-close>好的</button></div>`);
+  const p = d.plan || {};
+  if (!(p.picks || []).length) return setDialog(`<h3>没有合适的</h3><p>这些积分暂时换不到能估值的东西。</p><div class="actions"><button class="btn" data-close>好的</button></div>`);
+  setDialog(`<h3>${expiring ? "快过期积分" : "清仓"}方案</h3>
+    <ul>${p.picks.map((x) => `<li>${esc(x.name)} x${x.count}：${x.points.toLocaleString()} 积分，价值 ${yuan(x.value_yuan)}</li>`).join("")}</ul>
+    <p>共用 <b class="num">${p.points_used.toLocaleString()}</b> 积分，换到 <b class="num">${yuan(p.value_yuan)}</b>，剩 ${p.points_left.toLocaleString()} 积分。</p>
+    <p class="warn">积分扣除后不能撤销。</p>
+    <div class="actions"><button class="btn ghost" data-close>先不了</button><button class="btn gold" data-yes>按这个兑换</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+      const r = await run(["spend", ...(expiring ? ["--expiring"] : []), "-y"]); closeDialog();
+      toast(r.ok ? "换好了，券都到账了" : r.error); if (r.ok) renderMall();
+    }));
+}
+
+/* ---------------------------------------------------------------- orders */
+async function renderOrders() {
+  const m = $("#main"); m.innerHTML = `<p class="loading">正在查订单…</p>`;
+  const d = await run(["orders"]);
+  if (!d.ok) return showError(m, d.error);
+  const list = d.orders || [];
+  if (!list.length) { m.innerHTML = `<div class="empty">还没有点过餐。<br><button class="btn gold" data-go="order">去点一单</button></div>`;
+    m.querySelector("[data-go]").addEventListener("click", () => go("order")); return; }
+  const pick = state.lastOrder || list[0].order_id;
+  m.innerHTML = `<h2>订单</h2><p class="sub">最近点过的，点一单看进度和取餐码。</p>
+    <div class="orders"><section class="olist">${list.map((o) => `
+      <button class="oitem" data-oid="${esc(o.order_id)}" aria-current="${o.order_id === pick}">
+        <div class="row"><b>${esc((o.items || []).map((x) => x.name + (x.quantity > 1 ? " x" + x.quantity : "")).join("、"))}</b><span class="num">¥${esc(o.pay_yuan)}</span></div>
+        <div class="row muted" style="font-size:13px"><span>${esc(o.time || "")} · ${esc(o.store || "")}</span><span>${esc(o.status || "")}</span></div>
+      </button>`).join("")}</section><section class="track" id="track"></section></div>`;
+  m.querySelectorAll("[data-oid]").forEach((b) => b.addEventListener("click", () => {
+    m.querySelectorAll("[data-oid]").forEach((x) => x.setAttribute("aria-current", String(x === b))); showTrack(b.dataset.oid);
+  }));
+  showTrack(pick);
+}
+async function showTrack(oid) {
+  const t = $("#track"); t.innerHTML = `<p class="loading">查询进度…</p>`;
+  const d = await run(["track", oid]);
+  if (!d.ok) return showError(t, d.error);
+  const o = d.order || {};
+  const st = o.status || "";
+  const done = /完成|已取|送达/.test(st), cancelled = /取消|退款/.test(st);
+  const step = cancelled ? 0 : done ? 4 : /配送|送餐/.test(st) ? 3 : /制作|备餐/.test(st) ? 2 : /支付|接单|已下单/.test(st) && !/待支付/.test(st) ? 1 : 0;
+  t.innerHTML = `<h3>${esc(st)}</h3><p class="muted" style="margin:4px 0 0">${esc(o.hint || "")}</p>
+    <div class="steps" aria-hidden="true">${[1, 2, 3, 4].map((i) => `<span class="${i <= step ? "on" : ""}"></span>`).join("")}</div>
+    ${o.pickup_code && !done && !cancelled ? `<div class="pickup"><span class="muted">取餐码</span><b class="num">${esc(o.pickup_code)}</b></div>` : ""}
+    <p>${esc(o.store || "")}${o.delivery_address ? " → " + esc(o.delivery_address) : ""}</p>
+    <ul>${(o.items || []).map((x) => `<li>${esc(x.name)} x${esc(x.quantity)}</li>`).join("")}</ul>
+    <p>实付 <b class="num">¥${esc(o.pay_yuan)}</b>${o.discount_yuan && o.discount_yuan !== "0" ? `，优惠 ¥${esc(o.discount_yuan)}` : ""}</p>
+    ${!done && !cancelled ? `<p style="display:flex;gap:8px"><button class="btn ghost" id="refresh">刷新</button><button class="btn ghost" id="cancel">取消这单</button></p>` : ""}`;
+  const r = $("#refresh"); if (r) r.addEventListener("click", () => showTrack(oid));
+  const c = $("#cancel"); if (c) c.addEventListener("click", () => openDialog(`<h3>取消这单？</h3><p>取消后不能恢复；如果已经付过款，退款会原路退回。</p>
+    <div class="actions"><button class="btn ghost" data-close>不取消了</button><button class="btn" data-yes>确定取消</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+      const x = await run(["cancel", oid, "-y"]); closeDialog(); toast(x.ok ? "这单已经取消了" : x.error); renderOrders();
+    })));
+}
+
+/* ---------------------------------------------------------------- store */
+function changeStore() {
+  openDialog(`<h3>换一家门店</h3><p class="muted">告诉我在哪个城市、哪附近，我帮你找最近的一家，以后都默认去这家。</p>
+    <label for="city">城市</label><input id="city" placeholder="上海" autocomplete="address-level2">
+    <label for="near">附近的地点</label><input id="near" placeholder="人民广场">
+    <div class="actions"><button class="btn ghost" data-close>取消</button><button class="btn gold" data-yes>找门店</button></div>`,
+    (dlg) => dlg.querySelector("[data-yes]").addEventListener("click", async () => {
+      const city = $("#city", dlg).value.trim(), near = $("#near", dlg).value.trim();
+      if (!city || !near) return toast("城市和地点都要填");
+      const d = await run(["config", "store", "-c", city, "-l", near]);
+      if (!d.ok) return toast(d.error);
+      closeDialog(); $("#storeName").textContent = d.store.name; toast("以后默认去 " + d.store.name);
+      state.menu = null; state.plan = null; if (state.tab === "order") renderOrder();
+    }));
+}
+async function loadStore() {
+  const d = await run(["config"]);
+  if (d.ok && d.config) {
+    const s = d.config.store || "";
+    $("#storeName").textContent = s.startsWith("—") ? "第一次点餐时自动选门店" : s;
+    if (d.config.mode === "麦乐送") $(".mode [data-mode=delivery]").click();
+  }
+}
+
+/* ---------------------------------------------------------------- dialog */
+function openDialog(html, bind) { setDialog(html, bind); const d = $("#dlg"); if (!d.open) d.showModal(); }
+function setDialog(html, bind) {
+  const dlg = $("#dlg"); $("#dlgBody").innerHTML = html;
+  dlg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeDialog));
+  if (bind) bind(dlg);
+}
+function closeDialog() { $("#dlg").close(); }
+$("#dlg").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDialog(); });
+
+loadStore();
+go("today");
+</script>
+</body>
+</html>

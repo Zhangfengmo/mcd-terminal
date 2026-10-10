@@ -22,7 +22,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -64,9 +64,13 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("address add", ["--demo", "address", "add", "--city", "上海市", "--name", "麦麦", "--phone", "13800000000",
                         "--street", "人民大道 200 号", "--detail", "3 楼"])
     add("history", ["--demo", "history"])
+    add("prizes", ["--demo", "prizes"], contains=["积分抽奖"])
+    add("prizes --json", ["--demo", "--json", "prizes"], json=True)
+    add("web (self-test: page, API, QR, image proxy, security)", ["--demo", "web", "--self-test"],
+        contains=["web self-test passed"])
     add("history detail", ["--demo", "history", "ECS1211037028709736448"])
     add("orders", ["--demo", "orders"])
-    add("doctor", ["--demo", "doctor"], contains=["25"])
+    add("doctor", ["--demo", "doctor"], contains=["27"])
 
     # saved defaults
     add("config show", ["--demo", "config"], contains=["点餐方式"])
@@ -148,6 +152,7 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("n", ["--demo", "n"])
     add("cal", ["--demo", "cal"])
     add("c", ["--demo", "c"], contains=["点餐方式"])
+    add("w --self-test", ["--demo", "w", "--self-test"], contains=["web self-test passed"])
     add("c mode", ["--demo", "c", "mode", "外卖"], contains=["麦乐送"])
 
     # agent setup

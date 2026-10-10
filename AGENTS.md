@@ -27,4 +27,4 @@ pip install -e ".[dev]" && pytest
 python packaging/e2e.py python -m mcd_terminal   # 全部命令的回环测试（演示数据，约 20 秒）
 ```
 
-代码结构：`client.py`（MCP 客户端）、`order.py` / `valuation.py`（纯逻辑，不做 I/O）、`ordering.py`（下单流程）、`cli.py`（命令）、`render.py`（终端界面）、`demo.py`（演示数据）。
+代码结构：`client.py`（MCP 客户端）、`order.py` / `valuation.py`（纯逻辑，不做 I/O）、`ordering.py`（下单流程）、`cli.py`（命令）、`render.py`（终端界面）、`web.py` + `web/index.html`（网页版，复用 `--json` 接口）、`demo.py`（演示数据）。

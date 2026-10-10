@@ -73,6 +73,8 @@ class Campaign:
     tag: str     # e.g. "今日" / "往期回顾" / "即将开始"
     title: str
     intro: str
+    detail: str = ""   # the full multi-line description
+    image: str = ""
 
 
 def parse_calendar(text: Any) -> list[Campaign]:
@@ -81,19 +83,37 @@ def parse_calendar(text: Any) -> list[Campaign]:
     out: list[Campaign] = []
     day = tag = ""
     current: Campaign | None = None
+    in_detail = False
     for line in text.splitlines():
         h = re.match(r"^####\s+(\S+)\s*(.*)$", line.strip())
         if h:
             day, tag = h.group(1), h.group(2).strip()
+            current, in_detail = None, False
             continue
         t = re.search(r"\*\*活动标题\*\*[:：]\s*(.+?)\s*\\?\s*$", line)
         if t:
             current = Campaign(day, tag, t.group(1).strip(), "")
             out.append(current)
+            in_detail = False
             continue
         i = re.search(r"\*\*活动内容介绍\*\*[:：]\s*(.+?)\s*\\?\s*$", line)
         if i and current:
             current.intro = i.group(1).strip()
+            current.detail = current.intro
+            in_detail = True
+            continue
+        if current is None:
+            continue
+        img = re.search(r"<img\s+[^>]*src=\"([^\"]+)\"", line)
+        if img:
+            current.image = current.image or img.group(1)
+            in_detail = False
+            continue
+        if "**活动图片介绍**" in line:
+            in_detail = False
+            continue
+        if in_detail and line.strip():
+            current.detail += "\n" + line.strip().rstrip("\\").strip()
     return out
 
 

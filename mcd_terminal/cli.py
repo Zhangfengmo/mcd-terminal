@@ -75,7 +75,7 @@ REQUIRED_TOOLS = [
     "mall-order-list", "mall-order-detail", "query-nearby-stores",
     "delivery-query-addresses", "delivery-create-address", "delivery-query-stores", "query-meal-assistance",
     "query-meals", "query-meal-detail", "query-store-coupons", "calculate-price", "create-order",
-    "query-order", "order-list", "cancel-order", "list-nutrition-foods",
+    "query-order", "order-list", "cancel-order", "list-nutrition-foods", "query-lottery-info", "query-my-prizes",
 ]
 
 
@@ -696,7 +696,7 @@ def _out_order(scene: Any, plan: Any, kcal: int, campaigns: list, q: dict | None
                  "note": "现金和已有券部分的实时价格（含配送费、门店活动、团餐折扣）；积分兑换的商品另计 0 元"}
                 if q else None),
          campaigns_today=campaigns,
-         suggestions=[{"kind": x.kind, "add": x.menu.name, "pay_yuan": agent.yuan(x.pay_fen),
+         suggestions=[{"kind": x.kind, "add": x.menu.name, "code": x.menu.code, "pay_yuan": agent.yuan(x.pay_fen),
                        "saving_yuan": agent.yuan(x.saving_fen), "points": x.points or None,
                        "coupon": x.coupon.title if x.coupon else None, "days_left": x.days_left,
                        "message": ui.extra_text(x, left, False).plain,
@@ -735,6 +735,7 @@ def _confirm_order(scene: Any, plan: Any, q: dict | None = None) -> bool:
 def menu(
     search: Optional[str] = typer.Argument(None, help="只看名字里带这个词的，例如 薯条。"),
     detail: Optional[str] = typer.Option(None, "--detail", help="查看某个餐品（编码）的套餐组成。"),
+    pickup: bool = typer.Option(False, "--pickup", "-p", help="到店自取的菜单（默认方式见 mcd config）。"),
     delivery: bool = typer.Option(False, "--delivery", "-d", help=_SCENE_HELP["delivery"]),
     drive: bool = typer.Option(False, "--drive", help=_SCENE_HELP["drive"]),
     group: bool = typer.Option(False, "--group", help=_SCENE_HELP["group"]),
@@ -747,7 +748,7 @@ def menu(
     """菜单：门店现在能点什么、多少钱、多少热量；--detail 看套餐里有什么。"""
     def go() -> None:
         c = state.client
-        scene = pick_scene(c, state.prefs, _mode(delivery, drive, group), city, near, address, at, None)
+        scene = pick_scene(c, state.prefs, _mode(delivery, drive, group, pickup), city, near, address, at, None)
         if detail:
             d = ui.call(c, "query-meal-detail", dict(scene.params(), code=detail),
                         summary=lambda d: str((d or {}).get("name") or detail)) or {}
@@ -784,6 +785,8 @@ def menu(
         items = sorted(items, key=lambda m: m.price_fen)[:limit]
         _out(store=scene.store_name, scene=agent.scene(scene), items=[
             {"code": m.code, "name": m.name, "price_yuan": agent.yuan(m.price_fen),
+             "original_price_yuan": agent.yuan(m.original_fen) if m.original_fen and m.original_fen > m.price_fen else None,
+             "category": m.category or None, "tags": list(m.tags), "image": m.image or None,
              "kcal": (find_nutrition(m.name, table).kcal if find_nutrition(m.name, table) else None)} for m in items])
         ui.say(f"{scene.store_name} 有 {len(items)} 款" + (f"带「{search}」的" if search else "") + "餐品：")
         ui.console.print()
@@ -1225,6 +1228,64 @@ def cancel(
     _run("cancel", go)
 
 
+def _lottery(d: Any) -> dict[str, Any] | None:
+    if not isinstance(d, dict) or not d.get("activityName"):
+        return None
+    nxt = ((d.get("drawDecision") or {}).get("nextConsumption") or {})
+    return {"name": d.get("activityName"), "status": d.get("activityStatusText"),
+            "begin": d.get("beginTime"), "end": d.get("endTime"), "draw_points": d.get("drawPoint"),
+            "rule": d.get("drawTypeText"), "chances_left": d.get("availableTimes"),
+            "eligible": (d.get("drawDecision") or {}).get("resourceEligible"),
+            "next_cost": nxt.get("text") or None, "reason": (d.get("drawDecision") or {}).get("reason"),
+            "prizes": [{"name": x.get("name"), "image": x.get("imageUrl") or None, "type": x.get("typeText")}
+                       for x in d.get("prizes") or []]}
+
+
+def _my_prizes(d: Any) -> list[dict[str, Any]]:
+    rows = (d or {}).get("prizes") if isinstance(d, dict) else d
+    return [{"id": x.get("id"), "name": x.get("name"), "image": x.get("imageUrl") or None,
+             "status": x.get("statusText"), "won_at": x.get("recordTime"), "remind": x.get("timeRemindText")}
+            for x in rows or [] if isinstance(x, dict)]
+
+
+@app.command()
+def prizes() -> None:
+    """奖品：积分抽奖在送什么、我抽中过什么（只查看，不会抽奖）。"""
+    def go() -> None:
+        c = state.client
+        try:
+            lot = _lottery(ui.call(c, "query-lottery-info", summary=lambda d: str((d or {}).get("activityName") or "暂无抽奖活动")))
+        except McdError as e:
+            lot = None
+            ui.result(Text(str(e), style=ui.DIM))
+        try:
+            mine = _my_prizes(ui.call(c, "query-my-prizes", {"pageSize": "20"},
+                                      summary=lambda d: f"{len(_my_prizes(d))} 个奖品"))
+        except McdError as e:
+            mine = []
+            ui.result(Text(str(e), style=ui.DIM))
+        _out(lottery=lot, my_prizes=mine)
+        if lot:
+            ui.say(Text.assemble((lot["name"] or "积分抽奖", "bold"), (f"  {lot['status'] or ''}", ui.ACCENT)))
+            when = " ~ ".join(x for x in (lot["begin"], lot["end"]) if x)
+            ui.result(*(x for x in (when, f"抽一次：{lot['next_cost'] or (str(lot['draw_points']) + ' 积分')}",
+                                     lot["reason"]) if x))
+            if lot["prizes"]:
+                ui.console.print()
+                ui.simple_table([("奖池", "left"), ("类型", "left")],
+                                [[p["name"] or "", ui.dim(p["type"] or "")] for p in lot["prizes"]])
+        else:
+            ui.say("现在没有积分抽奖活动。")
+        ui.console.print()
+        if mine:
+            ui.simple_table([("我的奖品", "left"), ("状态", "left"), ("中奖时间", "left"), ("", "left")],
+                            [[p["name"] or "", Text(p["status"] or "", style=ui.GREEN if "可用" in (p["status"] or "") else ui.DIM),
+                              ui.dim(str(p["won_at"] or "")[:10]), ui.faint(p["remind"] or "")] for p in mine])
+        else:
+            ui.tip("还没有抽中过奖品")
+    _run("prizes", go)
+
+
 @app.command()
 def history(
     order_id: Optional[str] = typer.Argument(None, help="查看某一笔兑换的详情。"),
@@ -1272,7 +1333,8 @@ def calendar(day: Optional[str] = typer.Option(None, "--date", help="查看某�
         args = {"specifiedDate": day} if day else None
         items = parse_calendar(ui.call(state.client, "campaign-calendar", args,
                                        summary=lambda d: f"{len(parse_calendar(d))} 个活动"))
-        _out(campaigns=[{"day": it.day, "tag": it.tag, "title": it.title, "intro": it.intro} for it in items])
+        _out(campaigns=[{"day": it.day, "tag": it.tag, "title": it.title, "intro": it.intro, "detail": it.detail or None,
+                         "image": it.image or None} for it in items])
         if not items:
             ui.say("这段时间没有活动。")
             return
@@ -1384,17 +1446,55 @@ def skill_install(
         ui.tip("重启或新开一个 agent 会话就能用。别的 agent 可以用 --dir 指定它的技能目录。")
 
 
+# ================================================================== web
+@app.command()
+def web(
+    port: int = typer.Option(0, "--port", help="端口，默认随机。"),
+    no_open: bool = typer.Option(False, "--no-open", help="不自动打开浏览器。"),
+    self_check: bool = typer.Option(False, "--self-test", hidden=True, help="自检后退出（测试用）。"),
+) -> None:
+    """网页版：在浏览器里看活动、点餐、扫码付款，和终端用的是同一个引擎。"""
+    from .web import serve, self_test
+
+    if state.json:
+        raise typer.BadParameter("mcd web 是给人看的网页，不支持 --json")
+    if self_check:
+        results = self_test(state.demo)
+        for name, ok in results:
+            typer.echo(("✓ " if ok else "✗ ") + name)
+        bad = [n for n, ok in results if not ok]
+        typer.echo("web self-test passed" if not bad else f"web self-test failed: {', '.join(bad)}")
+        raise typer.Exit(1 if bad else 0)
+    ui.banner("web", state.demo)
+    try:
+        httpd, url = serve(demo=state.demo, port=port, open_browser=not no_open)
+    except OSError as e:
+        ui.error(f"启动失败：{e}")
+        raise typer.Exit(1)
+    ui.say(Text.assemble(("网页版已经打开：", ""), (url, f"underline {ui.ACCENT}")))
+    ui.console.print()
+    ui.tip("只在你这台电脑上可以访问，Token 不会发给网页。用完按 Ctrl+C 关掉。")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
+        ui.console.print()
+        ui.result(Text("网页版已关闭", style=ui.DIM))
+
+
 # ================================================================== short names
 # `mcd o 巨无霸` is `mcd order 巨无霸`. Aliases are hidden from the command list and
 # listed once in the epilog of `mcd -h` instead, so the list stays readable.
 ALIASES = {"o": order, "m": menu, "t": track, "p": portfolio, "s": spend, "st": stores,
-           "n": nutrition, "cal": calendar}
+           "n": nutrition, "cal": calendar, "w": web}
 for _alias, _fn in ALIASES.items():
     app.command(_alias, hidden=True)(_fn)
 app.add_typer(config_app, name="c", hidden=True)
 app.info.epilog = ("简写：[bold]o[/] order · [bold]m[/] menu · [bold]t[/] track · [bold]p[/] portfolio · "
                    "[bold]s[/] spend · [bold]st[/] stores · [bold]n[/] nutrition · [bold]c[/] config · "
-                   "[bold]cal[/] calendar　　常用参数：-d 外送 · -n 只看不下单 · -y 跳过确认 · "
+                   "[bold]cal[/] calendar · [bold]w[/] web　　常用参数：-d 外送 · -n 只看不下单 · -y 跳过确认 · "
                    "-c 城市 · -l 附近 · -h 帮助\n\n"
                    "遇到问题或有想法，欢迎提 Issue：https://github.com/Zhangfengmo/mcd-terminal/issues")
 

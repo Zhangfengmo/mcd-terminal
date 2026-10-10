@@ -47,6 +47,7 @@ class Coupon:
     price: str | None
     end: date | None
     tags: str = ""
+    image: str = ""
 
     def days_left(self, today: date) -> int | None:
         return None if self.end is None else (self.end - today).days
@@ -65,6 +66,7 @@ def parse_coupons(markdown: str) -> list[Coupon]:
         title = lines[0].strip()
         price = end = None
         tags = ""
+        img = re.search(r'<img\s+[^>]*src="([^"]+)"', block)
         for ln in lines[1:]:
             if "优惠" in ln and (m := re.search(r"¥\s*([\d.]+)", ln)):
                 price = m.group(1)
@@ -74,7 +76,7 @@ def parse_coupons(markdown: str) -> list[Coupon]:
                     end = datetime.strptime(dates[-1], "%Y-%m-%d").date()
             elif "标签" in ln:
                 tags = ln.split(":", 1)[-1].replace("**", "").strip()
-        coupons.append(Coupon(title, price, end, tags))
+        coupons.append(Coupon(title, price, end, tags, img.group(1) if img else ""))
     return coupons
 
 
@@ -121,6 +123,7 @@ class MarketItem:
     off_shelf: str = ""
     cat_name: str = ""   # listing catName, e.g. 到店专用 / 生日类派对 / 玩具
     ext_price: Decimal | None = None  # yuan, `extTradePrice`: what you still pay when using the coupon
+    image: str = ""
 
     @property
     def is_physical(self) -> bool:
@@ -216,6 +219,7 @@ def market_item(listing: dict[str, Any], detail: dict[str, Any] | None,
         category=str(detail.get("spuCategory") or "1"),
         off_shelf=str(listing.get("downTime") or detail.get("downDate") or ""),
         cat_name=str(listing.get("catName") or detail.get("catName") or ""),
+        image=str(listing.get("spuImage") or ""),
     )
 
 

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcd-terminal"
-version = "0.3.9"
+version = "0.4.0"
 description = "麦麦交易终端：帮你点麦当劳最省的 Skill 与命令行引擎，自动叠加优惠券、积分和门店活动并实时核价（基于麦当劳中国 MCP）"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-dependencies = ["httpx>=0.25", "typer>=0.12", "rich>=13"]
+dependencies = ["httpx>=0.25", "typer>=0.12", "rich>=13", "segno>=1.5"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
@@ -21,4 +21,4 @@ mcd = "mcd_terminal.cli:app"
 packages = ["mcd_terminal"]
 
 [tool.setuptools.package-data]
-mcd_terminal = ["skill/SKILL.md"]
+mcd_terminal = ["skill/SKILL.md", "web/index.html"]

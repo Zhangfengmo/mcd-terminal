@@ -25,14 +25,15 @@ def account(a: Account) -> dict[str, Any]:
 
 def coupon(c: Coupon, today: date) -> dict[str, Any]:
     return {"title": c.title, "price_yuan": float(c.price) if c.price else None,
-            "expires": c.end.isoformat() if c.end else None, "days_left": c.days_left(today), "tags": c.tags}
+            "expires": c.end.isoformat() if c.end else None, "days_left": c.days_left(today), "tags": c.tags,
+            "image": c.image or None}
 
 
 def market_item(i: MarketItem) -> dict[str, Any]:
     return {"name": i.name, "sku_id": i.sku_id, "spu_id": i.spu_id, "points": i.points,
             "ref_price_yuan": yuan(i.ref_fen), "use_price_yuan": yuan(i.use_price_fen),
             "value_yuan": yuan(i.value_fen), "in_store_only": i.in_store_only, "fen_per_point": round(i.fen_per_point, 3) if i.fen_per_point else None,
-            "physical": i.is_physical}
+            "physical": i.is_physical, "image": i.image or None, "category": i.cat_name or None}
 
 
 def spend_plan(p: Plan) -> dict[str, Any]:

@@ -9,10 +9,10 @@
 
 [![Release](https://img.shields.io/github/v/release/Zhangfengmo/mcd-terminal?color=D97757&label=release)](https://github.com/Zhangfengmo/mcd-terminal/releases/latest)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-x64%20%26%20arm64-4EBA65)
-![MCP](https://img.shields.io/badge/麦当劳%20MCP-25%20个工具-E5A84B)
+![MCP](https://img.shields.io/badge/麦当劳%20MCP-27%20个工具-E5A84B)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#更多)
 
-[快速开始](#快速开始) · [功能](#功能) · [原理剖析](#原理剖析) · [作为 Skill 使用](#作为-skill-使用) · [使用示例](#使用示例) · [常见问题](#常见问题) · [反馈与参与](#反馈与参与)
+[快速开始](#快速开始) · [网页版](#网页版mcd-web) · [功能](#功能) · [原理剖析](#原理剖析) · [作为 Skill 使用](#作为-skill-使用) · [使用示例](#使用示例) · [常见问题](#常见问题) · [反馈与参与](#反馈与参与)
 
 <img src="docs/demo.gif" alt="演示：一句话点餐，自动叠加券和积分，确认后下单" width="760">
 
@@ -57,6 +57,19 @@ mcd config                                    # 看看现在的设置
 ```
 
 还没有 Token？所有命令都可以加 `--demo`，用演示数据先逛一圈。
+
+## 网页版：mcd web
+
+终端不够直观的时候，运行 `mcd web`（或 `mcd w`），浏览器里会打开同一套功能：
+
+<img src="docs/web.jpg" alt="网页版点餐：左边选餐品，右边小票实时显示每样用券、用积分还是付现金" width="760">
+
+- **点餐**：门店菜单带图片，点几下加进购物车，右边的小票实时算出每样怎么付最省，确认后下单，**手机扫码付款**，再看出餐进度和取餐码。
+- **活动**：活动日历按今天、即将开始、往期排好，点开看完整介绍；还有积分抽奖的奖池。
+- **我的券和积分**：按到期时间排的倒计时，快过期的标红；抽中的奖品也在这里。
+- **积分商城**：商品按“每积分值多少钱”排好，一键算清仓方案。
+
+网页只在你自己的电脑上运行（只监听 127.0.0.1），Token 不会发给网页；扣积分、下单前一样会先问你。没有 Token 可以先用 `mcd web --demo` 看看。
 
 ## 功能
 
@@ -122,6 +135,8 @@ agent 调用时都加 `--json`，输出单个 JSON 对象。会扣积分或下�
 | `mcd order 巨无霸 --dry-run` | 只看怎么付最省，不下单 |
 | `mcd order 巨无霸 --delivery` | 麦乐送外送到家，先用 `mcd address add` 加一个收货地址（`--drive` 得来速，`--group` 团餐，`--at "2026-10-10 12:00"` 预约） |
 | `mcd order 巨无霸 --near 人民广场 --city 上海` | 换一家门店，以后会记住 |
+| `mcd web` | 网页版：看活动、带图点餐、扫码付款 |
+| `mcd prizes` | 积分抽奖的奖池和我抽中的奖品（只查看） |
 | `mcd config` | 默认门店、收货地址、点餐方式、积分用法，设一次就行 |
 | `mcd track` | 刚才那单做到哪了，显示取餐码 |
 | `mcd orders` / `mcd cancel` | 最近点过什么；取消刚下的单（会先问你） |
@@ -146,7 +161,7 @@ mcd t                         # = mcd track
 | `t` | `track` | | `-y` | `--yes` 跳过确认 |
 | `p` / `s` | `portfolio` / `spend` | | `-c` / `-l` | `--city` 城市 / `--near` 附近 |
 | `st` / `n` / `cal` | `stores` / `nutrition` / `calendar` | | `-j` | `--json` |
-| `c` | `config` | | `-h` | `--help` |
+| `c` / `w` | `config` / `web` | | `-h` | `--help` |
 
 ## 放心用
 
@@ -200,7 +215,7 @@ mcd t                         # = mcd track
 
 ## 更多
 
-- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、25 个工具、调用流程、真实服务端的兼容细节和业务价值
+- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、27 个工具、调用流程、真实服务端的兼容细节和业务价值
 - [SKILL.md](SKILL.md) · [AGENTS.md](AGENTS.md)：给 AI agent 的使用指南
 - 本项目是麦当劳程序员创意开发大赛的参赛作品，并非麦当劳官方产品，仅供个人非商业使用。参赛声明见 [CONTEST_DECLARATION.md](CONTEST_DECLARATION.md)。
 - License: MIT

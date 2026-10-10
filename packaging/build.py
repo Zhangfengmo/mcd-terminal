@@ -47,6 +47,8 @@ def main() -> None:
         "--name", "mcd", "--onedir", "--noconfirm", "--clean",
         "--distpath", str(dist), "--workpath", str(BUILD / "work"), "--specpath", str(BUILD),
         "--add-data", f"{ROOT / 'mcd_terminal' / 'skill' / 'SKILL.md'}{os.pathsep}mcd_terminal/skill",
+        "--add-data", f"{ROOT / 'mcd_terminal' / 'web' / 'index.html'}{os.pathsep}mcd_terminal/web",
+        "--collect-submodules", "segno",
         "--collect-submodules", "mcd_terminal",
         # rich loads its unicode width tables dynamically
         "--collect-submodules", "rich._unicode_data",
