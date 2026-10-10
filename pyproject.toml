@@ -18,7 +18,7 @@ dev = ["pytest>=7"]
 mcd = "mcd_terminal.cli:app"
 
 [tool.setuptools]
-packages = ["mcd_terminal"]
+packages = ["mcd_terminal", "mcd_terminal.games"]
 
 [tool.setuptools.package-data]
 mcd_terminal = ["skill/SKILL.md", "web/index.html"]
