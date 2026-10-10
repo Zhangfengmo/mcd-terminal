@@ -55,6 +55,8 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “我的默认门店/地址是什么” | `mcd --json config` |
 | “以后都送到家” / “默认去人民广场那家” | `mcd --json config mode delivery` / `mcd --json config store --city 上海 --near 人民广场` |
 | “积分抽奖有什么奖品”“我抽中了什么” | `mcd --json prizes`（只查看，不会抽奖） |
+| “有什么派对/亲子活动”“生日派对哪天能约” | `mcd --json events`，再 `mcd --json party <名字> --city <城市>`（只查场次，预订让用户在 App 里完成） |
+| “券快过期了提醒我”“这个活动开始时提醒我” | `mcd --json remind coupons` / `remind campaign -t <活动名>` → 讲清楚加什么提醒 → 同意后 `confirm_with` |
 | “给我一个网页看看” | 让用户自己运行 `mcd web`（打开浏览器的图形界面，agent 不需要调用它） |
 | “最近有什么活动” | `mcd --json calendar` |
 | “加个收货地址” | `mcd --json address add --city --name --phone --street --detail` |

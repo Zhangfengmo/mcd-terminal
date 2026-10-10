@@ -9,7 +9,7 @@
 
 [![Release](https://img.shields.io/github/v/release/Zhangfengmo/mcd-terminal?color=D97757&label=release)](https://github.com/Zhangfengmo/mcd-terminal/releases/latest)
 ![Platforms](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-x64%20%26%20arm64-4EBA65)
-![MCP](https://img.shields.io/badge/麦当劳%20MCP-27%20个工具-E5A84B)
+![MCP](https://img.shields.io/badge/麦当劳%20MCP-31%20个工具-E5A84B)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](#更多)
 
 [快速开始](#快速开始) · [网页版](#网页版mcd-web) · [功能](#功能) · [原理剖析](#原理剖析) · [作为 Skill 使用](#作为-skill-使用) · [使用示例](#使用示例) · [常见问题](#常见问题) · [反馈与参与](#反馈与参与)
@@ -70,6 +70,15 @@ mcd config                                    # 看看现在的设置
 - **积分商城**：商品按“每积分值多少钱”排好，一键算清仓方案。
 
 <img src="docs/web-order.jpg" alt="网页版点餐：左边选餐品，右边小票实时显示每样用券、用积分还是付现金" width="760">
+
+**不错过任何一个日子**：活动、券和积分到期、派对场次，都可以一键“提醒我”。在 Mac 上直接加进系统的**提醒事项**（列表「麦麦提醒」）；在 Windows 和 Linux 上生成一个带闹钟的日历文件，用 Outlook、系统日历打开就能导入。终端里也一样：
+
+```bash
+mcd remind coupons                     # 7 天内到期的券，到期当天 10 点提醒
+mcd remind points                      # 快过期的积分，月底前 3 天提醒
+mcd remind campaign -t 麦旋风          # 某个活动，下一个活动日提醒
+mcd party 生日派对 -c 上海             # 生日派对还有哪些门店、哪天几点可以约
+```
 
 网页只在你自己的电脑上运行（只监听 127.0.0.1），Token 不会发给网页；扣积分、下单前一样会先问你。没有 Token 可以先用 `mcd web --demo` 看看。
 
@@ -139,7 +148,8 @@ agent 调用时都加 `--json`，输出单个 JSON 对象。会扣积分或下�
 | `mcd order 巨无霸 --near 人民广场 --city 上海` | 换一家门店，以后会记住 |
 | `mcd web` | 网页版：看活动、带图点餐、扫码付款 |
 | `mcd prizes` | 积分抽奖的奖池和我抽中的奖品（只查看） |
-| `mcd events` | 生日派对、亲子活动、品鉴会这些可以报名的体验活动 |
+| `mcd events` / `mcd party <名字>` | 生日派对、亲子活动、品鉴会；查哪家店哪天几点还能约 |
+| `mcd remind coupons\|points\|campaign` | 把到期日和活动放进提醒事项（Mac）或日历（Windows / Linux） |
 | `mcd config` | 默认门店、收货地址、点餐方式、积分用法，设一次就行 |
 | `mcd track` | 刚才那单做到哪了，显示取餐码 |
 | `mcd orders` / `mcd cancel` | 最近点过什么；取消刚下的单（会先问你） |
@@ -218,7 +228,7 @@ mcd t                         # = mcd track
 
 ## 更多
 
-- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、27 个工具、调用流程、真实服务端的兼容细节和业务价值
+- [MCP_INTEGRATION.md](MCP_INTEGRATION.md)：用到的麦当劳 MCP Server、31 个工具、调用流程、真实服务端的兼容细节和业务价值
 - [SKILL.md](SKILL.md) · [AGENTS.md](AGENTS.md)：给 AI agent 的使用指南
 - 本项目是麦当劳程序员创意开发大赛的参赛作品，并非麦当劳官方产品，仅供个人非商业使用。参赛声明见 [CONTEST_DECLARATION.md](CONTEST_DECLARATION.md)。
 - License: MIT

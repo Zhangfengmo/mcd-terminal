@@ -372,6 +372,25 @@ class DemoClient:
         }
 
     # ---- calendar / time -----------------------------------------------
+    # ---- party booking (read-only lookups) -------------------------------
+    def _query_party_city(self, spuId: int) -> list:
+        return [{"code": 310100, "name": "上海市", "initial": "S", "latitude": 31.23, "longitude": 121.47, "sortNo": 1},
+                {"code": 110100, "name": "北京市", "initial": "B", "latitude": 39.90, "longitude": 116.40, "sortNo": 2}]
+
+    def _query_party_store(self, code: str, latitude: float | None = None, longitude: float | None = None,
+                           spuId: int | None = None) -> list:
+        return [{"code": "1450001", "name": "麦当劳人民广场餐厅", "shortName": "人民广场", "address": "西藏中路 268 号",
+                 "distance": 1200, "distanceText": "1.2km", "cityName": "上海市", "businessStatus": 1},
+                {"code": "1450002", "name": "麦当劳南京东路餐厅", "shortName": "南京东路", "address": "南京东路 300 号",
+                 "distance": 2300, "distanceText": "2.3km", "cityName": "上海市", "businessStatus": 1}]
+
+    def _query_party_store_date(self, storeCode: str, spuId: int) -> list:
+        return [{"date": f"{self.today + timedelta(days=k):%Y-%m-%d}", "spuId": spuId, "storeCode": storeCode} for k in (2, 3, 9)]
+
+    def _query_party_store_session(self, storeCode: str, spuId: int, dateStr: str) -> list:
+        return [{"id": 1, "timeStart": "10:30", "timeEnd": "12:00", "leftNum": 1, "partyMin": 6, "partyMax": 20, "price": 5800},
+                {"id": 2, "timeStart": "14:30", "timeEnd": "16:00", "leftNum": 0, "partyMin": 6, "partyMax": 20, "price": 5800}]
+
     # ---- lottery (read-only) ----------------------------------------------
     def _query_lottery_info(self) -> dict[str, Any]:
         t = self.today

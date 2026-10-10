@@ -22,7 +22,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "prizes", "events", "web", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "events", "party", "remind", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -68,11 +68,21 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("prizes --json", ["--demo", "--json", "prizes"], json=True)
     add("events", ["--demo", "events"], contains=["生日派对"])
     add("events --json", ["--demo", "--json", "events"], json=True)
+    add("party sessions", ["--demo", "party", "生日派对", "-c", "上海"], contains=["余 1"])
+    add("party --json", ["--demo", "--json", "party", "生日派对", "-c", "上海"], json=True, status="listed")
+    add("party needs a city", ["--demo", "--json", "party", "生日派对", "-c", "火星"], exit_code=1, contains=["choose_city"])
+    add("remind coupons --json needs confirmation", ["--demo", "--json", "remind", "coupons"], json=True,
+        status="needs_confirmation")
+    add("remind coupons (demo writes a calendar file)", ["--demo", "remind", "coupons", "-y"], contains=[".ics"])
+    add("remind points", ["--demo", "--json", "remind", "points", "-y"], json=True, status="done")
+    add("remind campaign", ["--demo", "--json", "remind", "campaign", "-t", "甜品", "-y"], json=True, status="done")
+    add("remind party", ["--demo", "--json", "remind", "party", "-t", "生日派对", "--date", "2026-10-12", "--at", "10:30", "-y"],
+        json=True, status="done")
     add("web (self-test: page, API, QR, image proxy, security)", ["--demo", "web", "--self-test"],
         contains=["web self-test passed"])
     add("history detail", ["--demo", "history", "ECS1211037028709736448"])
     add("orders", ["--demo", "orders"])
-    add("doctor", ["--demo", "doctor"], contains=["27"])
+    add("doctor", ["--demo", "doctor"], contains=["31"])
 
     # saved defaults
     add("config show", ["--demo", "config"], contains=["点餐方式"])

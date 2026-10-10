@@ -36,3 +36,11 @@ def test_page_escapes_server_text_and_never_embeds_a_token():
     js = html.split("<script>")[1]
     raw = re.findall(r"\$\{(?:x|c|l|o|i|p|d)\.(?:name|title|item|coupon|store|status|intro|detail|tags|message)\}", js)
     assert raw == []
+
+
+def test_style_and_script_stay_separate():
+    html = web.page_html()
+    css = html.split("<style>")[1].split("</style>")[0]
+    js = html.split("<script>")[1].split("</script>")[0]
+    assert "function " not in css and "=>" not in css
+    assert "{ display:" not in js and "border-radius:" not in js.replace('style="', "")

@@ -197,7 +197,7 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .camp-art { width: 100%; border-radius: var(--r-m); margin-bottom: 14px; border: 2px solid var(--ink); }
 .camp-detail { white-space: pre-line; color: var(--ink-2); font-size: 14px; max-height: 48vh; overflow: auto; }
 .events-strip { margin-top: 32px; }
-.events-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 16px; overflow-x: auto; padding: 4px 6px 10px 2px; }
+.events-row { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(220px, 21vw, 300px); gap: 16px; overflow-x: auto; padding: 4px 6px 10px 2px; }
 .event { background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r-m); box-shadow: var(--shadow); overflow: hidden; text-align: left; padding: 0; }
 .event .art { aspect-ratio: 16 / 9; background: var(--gum-soft); display: grid; place-items: center; overflow: hidden; border-bottom: 2px solid var(--ink); }
 .event .art img { width: 100%; height: 100%; object-fit: cover; }
@@ -488,6 +488,21 @@ function bindPosters(root, list, key = "today") {
       (dlg) => dlg.querySelector("[data-order]").addEventListener("click", () => { closeDialog(); go("order"); }));
   }));
 }
+/* ---------------------------------------------------------------- reminders */
+/* macOS: straight into the Reminders app. Elsewhere: a calendar file the browser downloads. */
+async function remindMe(args, label) {
+  const d = await run(["remind", ...args, "-y"]);
+  if (!d.ok) return toast(d.error);
+  if (d.status === "nothing_to_do") return toast("没有需要提醒的");
+  if (d.method === "reminders") return toast(`${label}：已加到“提醒事项”的「麦麦提醒」列表`);
+  if (d.method === "ics" && d.file) {
+    const a = document.createElement("a");
+    a.href = "/api/ics?s=" + encodeURIComponent(SECRET) + "&f=" + encodeURIComponent(d.file.split(/[\\/]/).pop());
+    a.download = ""; document.body.append(a); a.click(); a.remove();
+    toast(`${label}：日历文件已下载，打开它就能加到日历`);
+  }
+}
+
 /* ---------------------------------------------------------------- activity map */
 /* Every campaign lands in a district of an illustrated map, by what it is about. */
 const DISTRICTS = [
@@ -625,8 +640,16 @@ function campaignDialog(x) {
     ${x.days.length > 1 ? `<div class="timeline" aria-label="活动日期">${chips}</div>` : x.range ? `<p class="camp-when">${esc(x.range)}</p>` : ""}
     <div class="camp-detail">${esc(x.detail || x.intro || "")}</div>
     ${x.toy ? `<p class="muted" style="font-size:13px">周边和玩具通常限量、先到先得，具体以门店和麦当劳 App 为准。</p>` : ""}
-    <div class="actions"><button class="btn ghost" data-close>关闭</button>${x.when !== "past" ? `<button class="btn gold" data-order>去点餐</button>` : ""}</div>`,
-    (dlg) => { const b = dlg.querySelector("[data-order]"); if (b) b.addEventListener("click", () => { closeDialog(); go("order"); }); });
+    <div class="actions"><button class="btn ghost" data-close>关闭</button>${x.when !== "past" ? `<button class="btn ghost" data-remind>⏰ 提醒我</button><button class="btn gold" data-order>去点餐</button>` : ""}</div>`,
+    (dlg) => {
+      const b = dlg.querySelector("[data-order]"); if (b) b.addEventListener("click", () => { closeDialog(); go("order"); });
+      const r = dlg.querySelector("[data-remind]");
+      if (r) r.addEventListener("click", () => {
+        const next = x.when === "today" ? new Date() : x.next;
+        const ymd = next ? `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}` : null;
+        remindMe(["campaign", "-t", x.title, ...(ymd ? ["--date", ymd] : [])], "活动提醒");
+      });
+    });
 }
 function lotteryDialog(lot) {
   openDialog(`<h3>🎰 ${esc(lot.name)}</h3>
@@ -634,6 +657,28 @@ function lotteryDialog(lot) {
     ${(lot.prizes || []).length ? `<div class="mine">${lot.prizes.map((p) => `<article><div class="plate">${pic(p.image, p.name)}</div><div><h3>${esc(p.name)}</h3><div class="muted" style="font-size:13px">${esc(p.type || "")}</div></div></article>`).join("")}</div>` : ""}
     <p class="muted" style="font-size:13px">这里只展示奖池，抽奖请在麦当劳 App 里进行；抽中的奖品在「我的券和积分」里能看到。</p>
     <div class="actions"><button class="btn" data-close>好的</button></div>`);
+}
+
+async function loadSessions(e, city) {
+  const box = document.getElementById("sessions"); if (!box) return;
+  const d = await run(["party", String(e.spu_id), ...(city ? ["-c", city] : [])]);
+  if (!document.getElementById("sessions")) return;
+  if (d.status === "choose_city" && (d.cities || []).length) {
+    box.innerHTML = `<p class="muted" style="font-size:13px">在哪个城市？</p><div class="map-filters">${d.cities.slice(0, 16).map((c) => `<button data-city="${esc(c)}">${esc(c)}</button>`).join("")}</div>`;
+    box.querySelectorAll("[data-city]").forEach((b) => b.addEventListener("click", () => { box.innerHTML = `<p class="muted">查询中…</p>`; loadSessions(e, b.dataset.city); }));
+    return;
+  }
+  if (!d.ok) { box.innerHTML = `<p class="warn">${esc(d.error)}</p>`; return; }
+  const rows = (d.days || []).flatMap((day) => (day.sessions || []).map((x) => ({ ...x, date: day.date })));
+  box.innerHTML = `<p style="margin:12px 0 6px"><b>${esc(d.store.name)}</b> <span class="muted" style="font-size:13px">${esc(d.store.distance || "")} · ${esc(d.city || "")}</span></p>
+    ${rows.length ? `<div style="display:grid;gap:6px">${rows.map((x, i) => `<div class="extra" style="padding:6px 10px">
+      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 场" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}</span>` : ""}</p>
+      ${x.left > 0 ? `<button class="btn ghost" data-rs="${i}">⏰ 提醒我</button>` : ""}</div>`).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
+    <p class="muted" style="font-size:13px">预订需要在麦当劳 App 里完成，先设个提醒不会错过。</p>`;
+  box.querySelectorAll("[data-rs]").forEach((b) => b.addEventListener("click", () => {
+    const x = rows[Number(b.dataset.rs)];
+    remindMe(["party", "-t", `${e.name}（${d.store.name}）`, "--date", x.date, "--at", String(x.start).slice(0, 5)], "派对提醒");
+  }));
 }
 
 async function renderCampaigns() {
@@ -696,8 +741,9 @@ async function renderCampaigns() {
     openDialog(`${e.image ? `<img class="camp-art" src="${esc(imgSrc(e.image))}" alt="" onerror="this.remove()">` : ""}<h3>${esc(e.name)}</h3>
       <div class="camp-meta"><span class="chip">${esc(e.category || "")}</span>${e.price_yuan != null ? `<span class="chip gold">¥${e.price_yuan}</span>` : ""}${e.until ? `<span class="camp-when">报名到 ${esc(e.until)}</span>` : ""}</div>
       <div class="camp-detail">${esc(e.intro || "")}</div>
-      <p class="muted" style="font-size:13px">派对和体验活动需要选门店和场次，请在麦当劳 App 里预订。</p>
+      <div id="sessions"><p class="muted" style="font-size:13px">正在查最近的门店和场次…</p></div>
       <div class="actions"><button class="btn" data-close>好的</button></div>`);
+    loadSessions(e);
   }));
 }
 
@@ -868,7 +914,9 @@ async function renderAssets() {
         <div class="legend"><span><i style="background:var(--ketchup)"></i>两个月内过期 ${soon.toLocaleString()}</span><span><i style="background:var(--sun)"></i>不着急 ${(total - soon).toLocaleString()}</span></div>
         <p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">
           ${soon ? `<button class="btn gold" data-go="mall">把快过期的换成吃的</button>` : ""}
-          <button class="btn ghost" id="claimBtn2">领麦麦省的券</button></p>
+          ${soon ? `<button class="btn ghost" id="remindPoints">⏰ 月底前提醒我</button>` : ""}
+          <button class="btn ghost" id="claimBtn2">领麦麦省的券</button>
+          ${coupons.some((c) => c.days_left != null && c.days_left <= 7) ? `<button class="btn ghost" id="remindCoupons">⏰ 券到期前提醒我</button>` : ""}</p>
       </section>
       <section class="coupons">${coupons.length ? coupons.map((c) => `
         <article class="coupon ${c.days_left != null && c.days_left <= 3 ? "urgent" : ""}">
@@ -883,6 +931,8 @@ async function renderAssets() {
         <div class="muted" style="font-size:12px">${esc(String(x.won_at || "").slice(0, 10))} 抽中</div></div></article>`).join("")}</div>` : ""}`;
   m.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
   for (const id of ["claimBtn2", "claimBtn3"]) { const b = document.getElementById(id); if (b) b.addEventListener("click", claim); }
+  const rp = document.getElementById("remindPoints"); if (rp) rp.addEventListener("click", () => remindMe(["points"], "积分提醒"));
+  const rc = document.getElementById("remindCoupons"); if (rc) rc.addEventListener("click", () => remindMe(["coupons"], "券到期提醒"));
 }
 async function claim() {
   const d = await run(["claim"]);

@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import secrets
 import sys
 import threading
@@ -29,7 +30,7 @@ from urllib.parse import parse_qs, urlparse
 # Commands the page may run (first word). Login, logout and skill install stay in the terminal.
 ALLOWED = {
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "config", "track", "orders", "cancel", "history", "calendar", "prizes", "events",
+    "address", "config", "track", "orders", "cancel", "history", "calendar", "prizes", "events", "party", "remind",
 }
 # A QR code is only drawn for payment / order links on McDonald's own domains.
 QR_HOSTS = (".mcd.cn", ".mcdonalds.com.cn")
@@ -197,6 +198,25 @@ def make_handler(secret: str, demo: bool) -> type[BaseHTTPRequestHandler]:
                     self.send_header("X-Content-Type-Options", "nosniff")
                     self.end_headers()
                     self.wfile.write(got[1])
+            elif url.path == "/api/ics":
+                # calendar files that `mcd remind` wrote; only that folder, only .ics names
+                q = parse_qs(url.query)
+                if not secrets.compare_digest((q.get("s") or [""])[0], secret):
+                    self._send(HTTPStatus.FORBIDDEN, b"forbidden", "text/plain")
+                    return
+                from .prefs import home
+                name = os.path.basename((q.get("f") or [""])[0])
+                path = home() / "reminders" / name
+                if not name.endswith(".ics") or not path.is_file():
+                    self._send(HTTPStatus.NOT_FOUND, b"not found", "text/plain")
+                    return
+                body = path.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/calendar; charset=utf-8")
+                self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             elif url.path == "/favicon.ico":
                 self._send(HTTPStatus.NO_CONTENT, b"", "image/x-icon")
             else:

@@ -7,7 +7,7 @@ import re
 import shlex
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Callable, List, Optional
 
 import typer
@@ -76,6 +76,7 @@ REQUIRED_TOOLS = [
     "delivery-query-addresses", "delivery-create-address", "delivery-query-stores", "query-meal-assistance",
     "query-meals", "query-meal-detail", "query-store-coupons", "calculate-price", "create-order",
     "query-order", "order-list", "cancel-order", "list-nutrition-foods", "query-lottery-info", "query-my-prizes",
+    "query-party-city", "query-party-store", "query-party-store-date", "query-party-store-session",
 ]
 
 
@@ -1271,6 +1272,182 @@ def events() -> None:
                           f"¥{i['price_yuan']:g}" if i["price_yuan"] is not None else "—", ui.faint(i["until"] or "")]
                          for i in items])
     _run("events", go)
+
+
+# ================================================================== reminders
+def _remind_at(day: date, at: str, now: datetime) -> datetime:
+    h, m = (int(x) for x in at.split(":", 1))
+    when = datetime(day.year, day.month, day.day, h, m)
+    if when <= now:  # today's slot already passed: remind in a few minutes instead of in the past
+        when = now.replace(second=0, microsecond=0) + timedelta(minutes=5)
+    return when
+
+
+def _campaign_days(cal: Any, title: str, today: date) -> tuple[str, list[date]] | None:
+    hits = [c for c in parse_calendar(cal) if title in c.title]
+    if not hits:
+        return None
+    days = []
+    for c in hits:
+        m = re.search(r"(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日", c.day)
+        if m:
+            days.append(date(int(m.group(1) or today.year), int(m.group(2)), int(m.group(3))))
+    return hits[0].title, sorted(set(days))
+
+
+@app.command()
+def remind(
+    what: str = typer.Argument(..., help="coupons 快过期的券 / points 快过期的积分 / campaign 某个活动 / party 派对场次"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="活动或派对名字（campaign / party 时用，写一部分就行）。"),
+    day: Optional[str] = typer.Option(None, "--date", help="指定日期 YYYY-MM-DD（party 时必填，campaign 默认下一次活动日）。"),
+    at: str = typer.Option("10:00", "--at", help="几点提醒，HH:MM。"),
+    days: int = typer.Option(7, "--days", help="coupons：提醒多少天内到期的券。"),
+    to_ics: bool = typer.Option(False, "--ics", help="不用提醒事项，生成日历文件（.ics）。"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过确认。"),
+) -> None:
+    """提醒：把券和积分的到期日、活动开始、派对场次放进系统的提醒事项或日历。"""
+    from .remind import Reminder, add_to_macos_reminders, is_macos, open_file, write_ics
+
+    def go() -> None:
+        if not re.fullmatch(r"\d{1,2}:\d{2}", at):
+            raise McdError("--at 的格式是 HH:MM，例如 10:00")
+        now = _now()
+        today = now.date()
+        items: list[Reminder] = []
+        if what == "coupons":
+            coupons = parse_coupons(ui.call(state.client, "query-my-coupons",
+                                            summary=lambda d: f"{len(parse_coupons(d))} 张券"))
+            for cp in coupons:
+                if cp.end and 0 <= (cp.end - today).days <= days:
+                    items.append(Reminder(f"🎟 {cp.title} 今天到期", _remind_at(cp.end, at, now),
+                                          f"用券价 ¥{cp.price}；用 mcd order 点餐会自动用上" if cp.price else "用 mcd order 点餐会自动用上"))
+        elif what == "points":
+            acct = _account()
+            if acct.at_risk:
+                def last_day(d: date) -> date:
+                    return (d.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+                month_end = last_day(today)
+                if not acct.expiring_this_month:
+                    month_end = last_day(month_end + timedelta(days=1))
+                n = acct.expiring_this_month or acct.expiring_next_month
+                items.append(Reminder(f"⏳ {n:,} 麦当劳积分月底过期", _remind_at(month_end - timedelta(days=3), at, now),
+                                      "运行 mcd spend --expiring，把快过期的积分换成吃的"))
+        elif what in ("campaign", "event"):
+            if not title:
+                raise McdError("告诉我是哪个活动：mcd remind campaign --title 活动名的一部分")
+            cal = ui.call(state.client, "campaign-calendar", summary=lambda d: f"{len(parse_calendar(d))} 条活动")
+            found = _campaign_days(cal, title, today)
+            if not found:
+                raise McdError(f"活动日历里没找到「{title}」")
+            name, ds = found
+            target = datetime.strptime(day, "%Y-%m-%d").date() if day else next((d for d in ds if d >= today), None)
+            if target is None:
+                raise McdError("这个活动已经结束了")
+            items.append(Reminder(f"🍟 麦当劳活动：{name}", _remind_at(target, at, now), "活动详情：mcd calendar 或 mcd web"))
+        elif what == "party":
+            if not (title and day):
+                raise McdError("派对提醒需要名字和日期：mcd remind party --title 派对名 --date YYYY-MM-DD --at 14:00")
+            items.append(Reminder(f"🎈 {title}", _remind_at(datetime.strptime(day, "%Y-%m-%d").date(), at, now),
+                                  "在麦当劳 App 里预订或签到"))
+        else:
+            raise McdError("要提醒什么？coupons、points、campaign 或 party")
+
+        _out(status="planned", reminders=[{"title": r.title, "at": r.when.isoformat(timespec="minutes")} for r in items])
+        if not items:
+            _out(status="nothing_to_do")
+            ui.say("没有需要提醒的。" if what != "coupons" else f"{days} 天内没有快到期的券。")
+            return
+        mac = is_macos() and not to_ics and not state.demo
+        where = f"提醒事项（列表「麦麦提醒」）" if mac else "日历文件（.ics），用你的日历应用打开"
+        details = [f"{r.when:%m-%d %H:%M}  {r.title}" for r in items] + [Text(f"加到：{where}", style=ui.DIM)]
+        if not _gate(yes, lambda: ui.ask("添加提醒", details, "要添加吗？", ("好", "先不了"))):
+            return
+        if mac:
+            results = []
+            for r in items:
+                try:
+                    results.append(add_to_macos_reminders(r))
+                except RuntimeError as e:
+                    raise McdError(str(e))
+            created = results.count("created")
+            _out(status="done", method="reminders", created=created, existed=len(results) - created)
+            ui.say(f"加好了：{created} 条新提醒" + (f"，{len(results) - created} 条之前就有" if len(results) > created else "")
+                   + "，在“提醒事项”的「麦麦提醒」列表里。")
+            return
+        from .prefs import home
+        path = write_ics(items, home() / "reminders")
+        opened = False if state.demo or state.json else open_file(path)
+        _out(status="done", method="ics", file=str(path), opened=opened)
+        ui.say(Text.assemble(("日历文件已生成：", ""), (str(path), "bold")))
+        ui.tip("已经用默认的日历应用打开，确认导入就行" if opened else "双击这个文件，用日历应用（Outlook、日历等）导入")
+    _run("remind", go)
+
+
+# ================================================================== party booking (read-only)
+def _party_match(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+    evs = [r for r in rows if _points_of(r) == 0]
+    if name.isdigit():
+        return next((r for r in evs if str(r.get("spuId")) == name), None)
+    return next((r for r in evs if name in str(r.get("spuName", ""))), None)
+
+
+@app.command()
+def party(
+    name: str = typer.Argument(..., help="派对或体验活动的名字（写一部分就行）或 spuId，见 mcd events。"),
+    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市，默认用 mcd config 里的城市。"),
+    pick: int = typer.Option(1, "--pick", help="选第几家门店（默认最近的）。"),
+    dates: int = typer.Option(3, "--dates", help="看最近几天的场次。"),
+) -> None:
+    """派对场次：哪个城市、哪家店、哪天几点还能约（只查看，预订请在麦当劳 App 里完成）。"""
+    def go() -> None:
+        c = state.client
+        rows = _rows(ui.call(c, "mall-points-products", summary=lambda d: f"积分商城共 {len(_rows(d))} 个商品"))
+        ev = _party_match(rows, name)
+        if not ev:
+            raise McdError(f"没找到「{name}」这个派对或体验活动，用 mcd events 看看有哪些")
+        spu = int(ev["spuId"])
+        cities = _rows(ui.call(c, "query-party-city", {"spuId": spu}, summary=lambda d: f"{len(_rows(d))} 个城市可以约"))
+        want = (city or state.prefs.get("city") or "").replace("市", "")
+        ct = next((x for x in cities if want and want in str(x.get("name", ""))), None)
+        if ct is None:
+            _out(event=ev.get("spuName"), cities=[x.get("name") for x in cities], status="choose_city")
+            names = "、".join(str(x.get("name")) for x in cities[:12])
+            raise McdError(f"告诉我在哪个城市：mcd party {name} --city 上海" + (f"（可选：{names}）" if names else ""))
+        stores = _rows(ui.call(c, "query-party-store", {"code": str(ct.get("code")), "latitude": ct.get("latitude"),
+                                                          "longitude": ct.get("longitude"), "spuId": spu},
+                               summary=lambda d: f"{ct.get('name')} 有 {len(_rows(d))} 家店可以办"))
+        if not stores:
+            raise McdError(f"{ct.get('name')} 暂时没有门店可以办这个活动")
+        st = stores[min(max(pick, 1), len(stores)) - 1]
+        ds = _rows(ui.call(c, "query-party-store-date", {"storeCode": str(st.get("code")), "spuId": spu},
+                           summary=lambda d: f"{st.get('name')} 有 {len(_rows(d))} 天可以约"))
+        out_days = []
+        for d in ds[:max(dates, 1)]:
+            sessions = _rows(ui.call(c, "query-party-store-session",
+                                     {"storeCode": str(st.get("code")), "spuId": spu, "dateStr": d.get("date")},
+                                     summary=lambda x: f"{d.get('date')}：{len(_rows(x))} 个场次"))
+            out_days.append({"date": d.get("date"), "sessions": [
+                {"start": x.get("timeStart"), "end": x.get("timeEnd"), "left": x.get("leftNum"),
+                 "min": x.get("partyMin"), "max": x.get("partyMax"),
+                 "price_yuan": agent.yuan(x.get("price")) if isinstance(x.get("price"), int) else x.get("price")}
+                for x in sessions]})
+        _out(status="listed", event=ev.get("spuName"), spu_id=spu, city=ct.get("name"),
+             store={"name": st.get("name"), "code": st.get("code"), "address": st.get("address"),
+                    "distance": st.get("distanceText") or st.get("distance")},
+             other_stores=[x.get("name") for x in stores[:6] if x is not st], days=out_days,
+             note="预订请在麦当劳 App 里完成；可以用 mcd remind party 设个提醒")
+        ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
+        ui.console.print()
+        rows_ = []
+        for d in out_days:
+            for x in d["sessions"] or [{"start": "—", "end": "", "left": 0}]:
+                rows_.append([d["date"] or "", f"{x.get('start') or ''}–{x.get('end') or ''}",
+                              Text(f"余 {x.get('left')}", style=ui.GREEN if (x.get("left") or 0) > 0 else ui.DIM),
+                              f"¥{x['price_yuan']:g}" if isinstance(x.get("price_yuan"), (int, float)) else ""])
+        ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("价格", "right")], rows_)
+        ui.console.print()
+        ui.tip("预订请在麦当劳 App 里完成；想要提醒：mcd remind party --title 名字 --date 日期 --at 时间")
+    _run("party", go)
 
 
 @app.command()
