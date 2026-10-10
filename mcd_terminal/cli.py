@@ -2232,11 +2232,347 @@ def web(
         ui.result(Text("网页版已关闭", style=ui.DIM))
 
 
+# ================================================================== games
+GAMES = {"fries": "接薯条", "stack": "汉堡叠叠乐", "slot": "麦麦老虎机", "guess": "麦德尔猜价", "fortune": "麦麦签"}
+READY_WORDS = ("待取", "可取", "请取餐", "已出餐", "制作完成", "配送中", "已送达", "完成")
+
+
+def _scores() -> dict[str, Any]:
+    from .prefs import home
+    try:
+        return json.loads((home() / "games.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_scores(d: dict[str, Any]) -> None:
+    from .prefs import home
+    if state.demo:
+        return
+    try:
+        home().mkdir(parents=True, exist_ok=True)
+        (home() / "games.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _maidle_no(day: date) -> int:
+    return (day - date(2026, 10, 1)).days + 1
+
+
+@app.command()
+def play(
+    game: Optional[str] = typer.Argument(None, help="fries 接薯条 / stack 汉堡叠叠乐 / slot 麦麦老虎机 / guess 麦德尔猜价 / fortune 麦麦签；不写就选一个。"),
+    wait: Optional[str] = typer.Option(None, "--wait", help="接薯条：边玩边等餐，写订单号或 last；餐好了自动停下显示取餐码。"),
+    budget: Optional[float] = typer.Option(None, "--budget", help="老虎机：这一套最多付多少钱（用券和积分之后）。"),
+    kcal: Optional[int] = typer.Option(None, "--kcal", help="老虎机：这一套最多多少千卡。"),
+    again: bool = typer.Option(False, "--again", help="麦德尔：今天的题做过了，再来一道加练题。"),
+    ascii_only: bool = typer.Option(False, "--ascii", help="终端显示不了 emoji 时用字母代替。"),
+) -> None:
+    """游戏厅：接薯条、汉堡叠叠乐、麦麦老虎机、麦德尔猜价、麦麦签。老虎机和猜价用的是你的真实菜单、券和积分。"""
+    from .games.keys import interactive
+
+    if game and game not in GAMES:
+        raise typer.BadParameter("游戏只有 fries、stack、slot、guess、fortune")
+    if game == "fortune":
+        return _run("play", _play_fortune)
+    if state.json:
+        if game not in ("slot", "guess"):
+            raise typer.BadParameter("--json 只支持 slot、guess 和 fortune（给网页版和 agent 用），其他游戏请在终端里玩")
+        return _run("play", lambda: _game_data(game, budget, kcal, again))
+    if not interactive():
+        raise typer.BadParameter("游戏要在终端里玩（需要能读键盘）")
+    if not game:
+        keys_ = list(GAMES)
+        i = ui.select("游戏厅", [f"{GAMES[k]}" + {"fries": "：左右接住掉下来的薯条，躲开火苗",
+                                                     "stack": "：按空格把馅料叠上去，越叠越高",
+                                                     "slot": "：转出今天吃啥，按你的券和积分算好价",
+                                                     "guess": "：每日一题，猜叠券叠积分后最少付多少",
+                                                     "fortune": "：摇一支今天的签"}[k] for k in keys_],
+                      "玩哪个？", [GAMES[k] for k in keys_] + ["不玩了"])
+        if i is None or i >= len(keys_):
+            return
+        game = keys_[i]
+    if game == "fries":
+        _play_fries(wait, ascii_only)
+    elif game == "stack":
+        _play_stack(ascii_only)
+    elif game == "slot":
+        _run("play", lambda: _play_slot(budget, kcal))
+    elif game == "fortune":
+        _run("play", _play_fortune)
+    else:
+        _run("play", lambda: _play_guess(again))
+
+
+def _play_fortune() -> None:
+    from rich import box as rbox
+    from rich.panel import Panel
+    from .games.fortune import draw
+    try:
+        menu = [m.name for m in parse_menu(state.client.call("query-meals", {"storeCode": (state.prefs.get("store_pickup") or {}).get("code", ""),
+                                                                             "orderType": 1, "beType": 1}))]
+    except McdError:
+        menu = []
+    day = _now().date().isoformat()
+    f = draw(day, menu)
+    _out(status="drawn", date=day, fortune=f)
+    body = Text.assemble((f"{day}\n", ui.DIM), (f["lot"] + "\n", f"bold {ui.ACCENT}"), (f["text"] + "\n\n", ""),
+                         ("宜  ", "bold"), ("、".join(f["yi"]) + "\n", ""), ("忌  ", "bold"), ("、".join(f["ji"]) + "\n\n", ""),
+                         ("幸运餐品  ", ui.DIM), (f["lucky"], f"bold {ui.GREEN}"))
+    ui.console.print()
+    ui.console.print(ui._indent(Panel(body, title="麦麦签", box=rbox.ROUNDED, border_style=ui.ACCENT, padding=(1, 3), expand=False)))
+    ui.tip("每天一支，图个乐")
+
+
+def _play_fries(wait: Optional[str], ascii_only: bool) -> None:
+    import threading
+    from rich.live import Live
+    from .games.fries import Fries, render
+    from .games.keys import Keys
+
+    scores = _scores()
+    best = int(scores.get("fries", 0))
+    ready = threading.Event()
+    info: dict[str, Any] = {"status": ""}
+    stop = threading.Event()
+    oid = None
+    if wait:
+        oid = _latest_order() if wait in ("last", "1", "最近") else wait
+        if not oid:
+            raise typer.BadParameter("没找到最近的订单，给个订单号：mcd play fries --wait <订单号>")
+
+        def watch() -> None:
+            started = time.monotonic()
+            while not stop.is_set():
+                try:
+                    d = state.client.call("query-order", {"orderId": oid}) or {}
+                    st = str(d.get("orderStatus") or "")
+                    info.update(status=st, code=d.get("pickupCode"), store=d.get("storeName"))
+                    if state.demo and time.monotonic() - started > 25:
+                        info.update(status="待取餐", code=d.get("pickupCode") or "A127")
+                        st = "待取餐"
+                    if any(w in st for w in READY_WORDS) and "取消" not in st:
+                        ready.set()
+                        return
+                except McdError:
+                    pass
+                stop.wait(20)
+        threading.Thread(target=watch, daemon=True).start()
+    g = Fries()
+    try:
+        with Keys() as k, Live(render(g, best), console=ui.console, screen=True, auto_refresh=False) as live:
+            last = time.monotonic()
+            while not g.over and not ready.is_set():
+                key = k.poll(1 / 30)
+                if key in ("left", "right"):
+                    g.move(-1 if key == "left" else 1)
+                elif key in ("q", "esc"):
+                    break
+                now = time.monotonic()
+                g.step(min(now - last, 0.1))
+                last = now
+                status = f"订单 …{oid[-4:]}：{info['status'] or '查询中'} · 餐好了会自动停下" if oid else ""
+                live.update(render(g, best, status, ascii_only), refresh=True)
+    finally:
+        stop.set()
+    caught = "、".join(f"{n} {g.caught[k]}" for k, n in (("fries", "薯条"), ("nugget", "麦乐鸡"), ("burger", "汉堡")) if g.caught.get(k))
+    ui.say(Text.assemble(("接薯条 ", "bold"), (f"{g.score} 分", f"bold {ui.ACCENT}"),
+                         ("  新纪录！" if g.score > best else f"  最高 {best}", ui.GREEN if g.score > best else ui.DIM)))
+    if caught:
+        ui.tip(f"接住了 {caught}")
+    if g.score > best:
+        scores["fries"] = g.score
+        _save_scores(scores)
+    if ready.is_set():
+        ui.say(Text.assemble(("餐好了！", f"bold {ui.GREEN}"), (f"  {info.get('store') or ''} · {info['status']}", ui.DIM)))
+        if info.get("code"):
+            ui.big_code("取餐码", str(info["code"]))
+    elif not wait:
+        ui.tip(Text.assemble(("下单后边玩边等：", ""), ui.cmd("mcd play fries --wait last")))
+
+
+def _play_stack(ascii_only: bool) -> None:
+    from rich.live import Live
+    from .games.keys import Keys
+    from .games.stack import Stack, render
+
+    scores = _scores()
+    best = int(scores.get("stack", 0))
+    g = Stack()
+    with Keys() as k, Live(render(g, best), console=ui.console, screen=True, auto_refresh=False) as live:
+        last = time.monotonic()
+        end_at = None
+        while True:
+            key = k.poll(1 / 40)
+            if key in ("q", "esc"):
+                break
+            if key in ("space", "enter", "down") and not g.over:
+                g.drop()
+                if g.over:
+                    end_at = time.monotonic() + 1.5
+            now = time.monotonic()
+            g.step(min(now - last, 0.1))
+            last = now
+            live.update(render(g, best, ascii_only), refresh=True)
+            if end_at and now > end_at:
+                break
+    names = [layer.name for layer in g.tower[1:]]
+    ui.say(Text.assemble(("汉堡叠叠乐 ", "bold"), (f"{g.layers} 层", f"bold {ui.ACCENT}"),
+                         ("  新纪录！" if g.layers > best else f"  最高 {best}", ui.GREEN if g.layers > best else ui.DIM)))
+    if names:
+        ui.tip("这个汉堡夹了：" + "、".join(dict.fromkeys(names)) + f"，大概 {320 + 140 * len(names):,} 千卡（游戏版，别当真）")
+    if g.layers > best:
+        scores["stack"] = g.layers
+        _save_scores(scores)
+
+
+def _kitchen():
+    from .games import kitchen
+    k = kitchen.load(state.client, state.prefs)
+    if not any(k.reel(x) for x in ("main", "side", "drink")):
+        raise McdError("这家店的菜单里找不到能转的餐品")
+    return k
+
+
+def _combo_out(k: Any, items: list, plan: Any) -> dict[str, Any]:
+    return {"items": [{"name": m.name, "code": m.code, "price_yuan": agent.yuan(m.price_fen), "image": m.image or None}
+                      for m in items],
+            "original_yuan": agent.yuan(plan.original_fen), "pay_yuan": agent.yuan(plan.pay_fen),
+            "saving_yuan": agent.yuan(plan.saving_fen), "points_used": plan.points_used,
+            "kcal": k.kcal_of(items), "plan": agent.order_plan(plan),
+            "order_command": "mcd order " + " ".join(_q(m.name) for m in items)}
+
+
+def _game_data(game: str, budget: Optional[float], kcal: Optional[int], again: bool) -> None:
+    """--json data for the web arcade: a slot result (with the reels), or today's 麦德尔 puzzle."""
+    import random as _r
+    k = _kitchen()
+    if game == "slot":
+        keys_ = ["main", "side", "drink"]
+        got = k.roll(_r.Random(), keys_, round(budget * 100) if budget else None, kcal)
+        if not got:
+            raise McdError("这个预算和热量下转不出来，放宽一点试试")
+        items, plan = got
+        _out(status="rolled", store=k.scene.store_name, reels={x: [m.name for m in k.reel(x)][:30] for x in keys_},
+             combo=_combo_out(k, items, plan))
+        return
+    from .games.guess import TRIES, CLOSE_FEN, puzzle
+    day = _now().date()
+    pz = puzzle(k, day, salt=str(_r.random()) if again else "")
+    if not pz:
+        raise McdError("今天的题出不来：这家店的菜单太少了")
+    items, plan = pz
+    _out(status="puzzle", no=_maidle_no(day), date=day.isoformat(), tries=TRIES, close_yuan=agent.yuan(CLOSE_FEN),
+         store=k.scene.store_name, points=k.budget,
+         coupons=[c.title for c in k.owned if c.price_fen is not None][:6],
+         cart=[{"name": m.name, "price_yuan": agent.yuan(m.price_fen), "image": m.image or None} for m in items],
+         answer=_combo_out(k, items, plan))
+
+
+def _play_slot(budget: Optional[float], kcal: Optional[int]) -> None:
+    import random as _r
+    from rich.live import Live
+    from .games.slot import render
+
+    k = _kitchen()
+    keys_ = ["main", "side", "drink"]
+    rng = _r.Random()
+    reels = [k.reel(x) for x in keys_]
+    while True:
+        got = k.roll(rng, keys_, round(budget * 100) if budget else None, kcal)
+        if not got:
+            raise McdError("这个预算和热量下转不出来，放宽一点试试")
+        items, plan = got
+        stops = [0.9, 1.4, 1.9]
+        start = time.monotonic()
+        with Live(render(["?"] * 3, keys_, [True] * 3), console=ui.console, auto_refresh=False, transient=False) as live:
+            while True:
+                t = time.monotonic() - start
+                names = [items[i].name if t >= stops[i] else rng.choice(reels[i]).name for i in range(3)]
+                live.update(render(names, keys_, [t < s for s in stops]), refresh=True)
+                if t >= stops[-1]:
+                    break
+                time.sleep(0.07)
+            kc = k.kcal_of(items)
+            foot = Text.assemble(("原价 ", ui.DIM), (ui.yuan(plan.original_fen), "strike"), ("  →  实付 ", ui.DIM),
+                                 (ui.yuan(plan.pay_fen), f"bold {ui.GREEN}"),
+                                 (f"（用券和 {plan.points_used:,} 积分）" if plan.points_used else ("（用了券）" if plan.saving_fen else ""), ui.DIM),
+                                 (f"  ·  约 {kc:,} 千卡" if kc else "", ui.DIM))
+            live.update(render(names, keys_, [False] * 3, foot), refresh=True)
+        _out(combo=_combo_out(k, items, plan))
+        i = ui.select("就吃这个？", [], "怎么样？", ["再转一次", "就点这套（先看方案，确认后才下单）", "不玩了"])
+        if i == 0:
+            continue
+        if i == 1:
+            ui.console.print()
+            try:
+                app(["order", *[m.name for m in items]], standalone_mode=False, prog_name="mcd")
+            except SystemExit:
+                pass
+        return
+
+
+def _play_guess(again: bool) -> None:
+    import random as _r
+    from .games.guess import CLOSE_FEN, HINT_MARK, HINT_TEXT, TRIES, hint, puzzle
+
+    day = _now().date()
+    scores = _scores()
+    done = scores.get("maidle", {}).get(day.isoformat())
+    if done and not again:
+        ui.say(f"今天的麦德尔 #{_maidle_no(day)} 已经做过了：{done}。明天再来，或者加 --again 做一道加练题。")
+        return
+    k = _kitchen()
+    pz = puzzle(k, day, salt=str(_r.random()) if again else "")
+    if not pz:
+        raise McdError("今天的题出不来：这家店的菜单太少了")
+    items, plan = pz
+    ui.say(Text.assemble((f"麦德尔 #{_maidle_no(day)}" + ("（加练）" if again else ""), "bold"),
+                         (f"  ·  {k.scene.store_name}", ui.DIM)))
+    ui.console.print()
+    ui.simple_table([("购物车", "left"), ("原价", "right")], [[m.name, ui.dim(ui.yuan(m.price_fen))] for m in items])
+    ui.console.print()
+    ui.tip(f"你手上有 {k.budget:,} 积分" + (f"，能用的券：{'、'.join(c.title for c in k.owned if c.price_fen is not None)[:60]}"
+                                            if any(c.price_fen is not None for c in k.owned) else "，没有能用的券"))
+    ui.tip(f"猜猜叠完券和积分，最少要付多少？最多 {TRIES} 次，差 {ui.yuan(CLOSE_FEN)} 以内算中")
+    marks = []
+    won = False
+    for n in range(1, TRIES + 1):
+        ans = ui.ask_text(f"第 {n} 次", "输入金额，例如 23.5；回车放弃")
+        if not ans:
+            break
+        try:
+            g = round(float(ans.replace("¥", "").replace("元", "")) * 100)
+        except ValueError:
+            ui.tip("写个数字就行，例如 23.5")
+            continue
+        h = hint(g, plan.pay_fen)
+        marks.append(HINT_MARK[h])
+        ui.console.print(Text.assemble(("  " + HINT_MARK[h] + " ", ""), (ui.yuan(g), "bold"), ("  " + HINT_TEXT[h],
+                                                                                           ui.GREEN if h == "hit" else ui.AMBER)))
+        if h == "hit":
+            won = True
+            break
+    ui.console.print()
+    ui.say(Text.assemble(("答案 ", ""), (ui.yuan(plan.pay_fen), f"bold {ui.GREEN}"),
+                         (f"（原价 {ui.yuan(plan.original_fen)}）", ui.DIM)))
+    ui.order_plan(plan)
+    share = f"麦德尔 #{_maidle_no(day)} {len(marks) if won else 'X'}/{TRIES} " + "".join(marks)
+    ui.console.print()
+    ui.console.print(ui._indent(Text(share, style="bold")))
+    ui.tip("把上面这行发给朋友比比看；想吃这套：" + "mcd order " + " ".join(_q(m.name) for m in items) + " -n")
+    _out(status="finished", won=won, share=share)
+    if not again:
+        scores.setdefault("maidle", {})[day.isoformat()] = share
+        _save_scores(scores)
+
+
 # ================================================================== short names
 # `mcd o 巨无霸` is `mcd order 巨无霸`. Aliases are hidden from the command list and
 # listed once in the epilog of `mcd -h` instead, so the list stays readable.
 ALIASES = {"o": order, "m": menu, "t": track, "p": portfolio, "s": spend, "st": stores,
-           "n": nutrition, "cal": calendar, "w": web}
+           "n": nutrition, "cal": calendar, "w": web, "g": play}
 for _alias, _fn in ALIASES.items():
     app.command(_alias, hidden=True)(_fn)
 app.add_typer(config_app, name="c", hidden=True)

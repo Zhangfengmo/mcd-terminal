@@ -23,7 +23,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "prizes", "draw", "events", "party", "survey", "stats", "remind", "web", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "draw", "events", "party", "survey", "stats", "play", "remind", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -98,6 +98,11 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("stats", ["--demo", "stats"], contains=["吃了多少", "千卡", "本周", "热量来源最多"])
     add("stats --json", ["--demo", "--json", "stats"], json=True, contains=['"periods"', '"energy_split"', '"daily"'])
     add("stats --days 7", ["--demo", "stats", "--days", "7"], contains=["最近 7 天"])
+    add("play slot --json", ["--demo", "--json", "play", "slot", "--budget", "40"], json=True, status="rolled")
+    add("play guess --json", ["--demo", "--json", "play", "guess"], json=True, status="puzzle", contains=["answer"])
+    add("play fortune", ["--demo", "play", "fortune"], contains=["麦麦签", "宜", "幸运餐品"])
+    add("g fortune", ["--demo", "g", "fortune"], contains=["麦麦签"])
+    add("play fries needs a real terminal", ["--demo", "play", "fries"], exit_code=2, contains=["终端"])
     add("survey recent orders", ["--demo", "survey"], contains=["问卷", "可核销"])
     add("survey --json", ["--demo", "--json", "survey"], json=True, contains=["满意度问卷专享"])
     add("survey: order without a survey", ["--demo", "--json", "survey", "1030938700000000000000000001"], json=True,

@@ -1,4 +1,4 @@
-"""录制 docs/web-demo.gif：活动地图加购 → 点餐和小票 → 扫码付款 → 派对推荐 → 积分抽奖 → 热量统计。
+"""录制 docs/web-demo.gif：活动地图加购 → 点餐和小票 → 扫码付款 → 派对推荐 → 积分抽奖 → 热量统计 → 游戏厅。
 
     pip install playwright && python scripts/record_web.py      # 需要 Chromium 和 ffmpeg
 
@@ -133,7 +133,19 @@ with sync_playwright() as p:
     pg.wait_for_selector('.hero-kcal', timeout=15000)
     pg.wait_for_timeout(1500)
     click(pg, '#intake [data-p="month"]', 1200)
-    move_to(pg, pg.locator('.kcal-chart .bar').last); pg.wait_for_timeout(1800)
+    move_to(pg, pg.locator('.kcal-chart .bar').last); pg.wait_for_timeout(1500)
+
+    # 游戏厅：老虎机转出今天吃啥，再玩几秒接薯条
+    click(pg, '[data-tab=arcade]', 900)
+    click(pg, '[data-game=slot]', 600)
+    click(pg, '#spin', 0)
+    pg.wait_for_selector('[data-cart]', timeout=15000)
+    pg.wait_for_timeout(1800)
+    click(pg, '#backArcade', 500)
+    click(pg, '[data-game=fries]', 300)
+    for i in range(14):
+        k = 'ArrowLeft' if (i // 3) % 2 else 'ArrowRight'
+        pg.keyboard.down(k); pg.wait_for_timeout(220); pg.keyboard.up(k); pg.wait_for_timeout(60)
     path = pg.video.path()
     t_end = time.monotonic()
     ctx.close(); b.close()
@@ -147,7 +159,7 @@ cut_from = dur - (t_end - t_yes) + 1.5      # “正在下单…”留 1.5 秒
 cut_to = dur - (t_end - t_qr) - 0.1
 out = ROOT / "docs" / "web-demo.gif"
 graph = (f"[0:v]trim=0:{cut_from:.2f},setpts=PTS-STARTPTS[a];[0:v]trim=start={cut_to:.2f},setpts=PTS-STARTPTS[b];"
-         "[a][b]concat=n=2:v=1[c];[c]setpts=PTS/1.5,fps=9,scale=900:-1:flags=lanczos,split[x][y];"
+         "[a][b]concat=n=2:v=1[c];[c]setpts=PTS/1.6,fps=8,scale=880:-1:flags=lanczos,split[x][y];"
          "[x]palettegen=max_colors=96:stats_mode=full[p];[y][p]paletteuse=dither=none:diff_mode=rectangle")
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-filter_complex", graph, str(out)], check=True)
 keep = os.environ.get("MCD_WEBM_OUT")          # scripts/make_demo.sh 用它拼出顶部的完整演示

@@ -555,6 +555,71 @@ footer a { color: inherit; }
   @keyframes print { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 }
 @media (prefers-reduced-motion: reduce) { .btn, .dish, .poster { transition: none; } }
+
+/* ---------------------------------------------------------------- arcade */
+.arcade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin: 8px 0 16px; }
+.arcade-card { display: grid; gap: 6px; justify-items: start; text-align: left; padding: 16px; border: 2px solid var(--ink); border-radius: var(--r-l);
+  background: var(--surface); box-shadow: var(--shadow); cursor: pointer; font: inherit; color: var(--ink); transition: transform .12s; }
+.arcade-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.arcade-card .ill { width: 56px; }
+.arcade-card b { font-size: 17px; } .arcade-card small { color: var(--ink-2); font-size: 13px; }
+.game-head { display: flex; align-items: center; gap: 12px; } .game-head h2 { margin: 0; }
+.game-body { display: grid; justify-items: center; }
+.game-canvas { position: relative; width: min(100%, 380px); }
+.game-canvas canvas { width: 100%; display: block; border: 2px solid var(--ink); border-radius: var(--r-l); box-shadow: var(--shadow); touch-action: none; background: #fff; }
+.game-over { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(255, 253, 247, .92); border-radius: var(--r-l); padding: 20px; }
+.game-over[hidden] { display: none; }
+.game-over h3 { font-size: 26px; margin: 0 0 6px; }
+.game-help { max-width: 380px; font-size: 13px; text-align: center; }
+.slot-ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: center; margin-bottom: 14px; }
+.slot-ctl input { width: 80px; font: inherit; padding: 6px 8px; border: 2px solid var(--ink); border-radius: 10px; }
+.slot-machine { width: min(100%, 640px); border: 3px solid var(--ink); border-radius: var(--r-l); background: var(--ketchup); padding: 16px; box-shadow: var(--shadow); }
+.reels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.reel { display: grid; justify-items: center; gap: 4px; background: #fff; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 10px 6px; min-width: 0; }
+.reel small { color: var(--ink-3); font-size: 12px; }
+.reel .ill, .reel img { width: 64px; height: 64px; object-fit: contain; }
+.reel b { font-size: 14px; text-align: center; overflow-wrap: anywhere; }
+.reel.spinning .ill { filter: blur(1.5px); transform: translateY(2px); }
+.reel.landed { animation: land .35s ease-out; }
+@keyframes land { 0% { transform: translateY(-8px); } 60% { transform: translateY(3px); } 100% { transform: none; } }
+.slot-result { margin-top: 12px; background: #fff; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 12px; text-align: center; }
+.slot-price { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: center; }
+.big-pay { font-size: 30px; color: var(--pickle); }
+.guess { width: min(100%, 700px); }
+.guess-cart { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.guess-list { list-style: none; padding: 0; display: grid; gap: 6px; }
+.guess-list li { display: grid; grid-template-columns: 28px 90px 1fr; align-items: center; gap: 8px; border: 2px solid var(--ink); border-radius: 10px; padding: 6px 10px; background: #fff; }
+.guess-list li.hit { background: var(--pickle-soft); }
+.guess-form { display: flex; gap: 8px; } .guess-form input { flex: 1; font: inherit; font-size: 18px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 12px; }
+.guess-end { border: 2px dashed var(--ink); border-radius: var(--r-m); padding: 12px 14px; background: var(--paper); }
+.guess-plan { margin: 6px 0; padding-left: 18px; font-size: 14px; }
+.share { font: inherit; font-weight: 700; background: var(--sunken); padding: 8px 10px; border-radius: 10px; white-space: pre-wrap; }
+.mem-bar { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; font-weight: 700; }
+.mem-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 92px)); gap: 10px; }
+.mem-card { position: relative; aspect-ratio: 1; border: 2px solid var(--ink); border-radius: 14px; background: var(--grape); cursor: pointer; padding: 0; box-shadow: var(--shadow-s); perspective: 400px; }
+.mem-card .front, .mem-card .back { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 12px; backface-visibility: hidden; transition: transform .3s; }
+.mem-card .front { background: #fff; transform: rotateY(180deg); padding: 12px; }
+.mem-card .back { background: repeating-linear-gradient(45deg, var(--grape) 0 8px, #6a4ef0 8px 16px); }
+.mem-card.open .front { transform: rotateY(0); } .mem-card.open .back { transform: rotateY(-180deg); }
+.mem-card.done { border-color: var(--pickle); box-shadow: 2px 2px 0 var(--pickle); }
+.fortune { display: grid; gap: 12px; justify-items: center; width: min(100%, 460px); }
+.tube { width: 110px; height: 150px; display: grid; place-items: center; background: var(--ketchup); border: 3px solid var(--ink); border-radius: 18px 18px 30px 30px; box-shadow: var(--shadow); }
+.tube .ill { width: 64px; }
+.tube.shaking { animation: shake .18s linear infinite; }
+@keyframes shake { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+.lot-card { border: 2px solid var(--ink); border-radius: var(--r-l); padding: 16px 18px; background: var(--paper); box-shadow: var(--shadow); text-align: center; }
+.lot-card h3 { font-size: 28px; margin: 4px 0; color: var(--ketchup); }
+.yiji { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; text-align: left; }
+.yiji div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.yiji b { font-size: 18px; margin-right: 4px; }
+.yiji span { background: #fff; border: 1.5px solid var(--ink); border-radius: 99px; padding: 1px 8px; font-size: 13px; }
+.lucky { display: flex; align-items: center; justify-content: center; gap: 6px; } .lucky .ill { width: 28px; }
+.persona { width: min(100%, 560px); }
+.quiz h3 { font-size: 22px; margin: 14px 0; }
+.quiz-opts { display: grid; gap: 10px; } .quiz-opts .btn { justify-content: flex-start; text-align: left; }
+.persona-card { text-align: center; border: 2px solid var(--ink); border-radius: var(--r-l); padding: 22px; background: var(--sun-soft); box-shadow: var(--shadow); }
+.persona-card .ill { width: 96px; } .persona-card h3 { font-size: 30px; margin: 4px 0 8px; }
+@media (max-width: 560px) { .mem-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .reel .ill, .reel img { width: 48px; height: 48px; } }
 </style>
 </head>
 <body>
@@ -574,6 +639,7 @@ footer a { color: inherit; }
     <button role="tab" data-tab="assets" aria-selected="false">我的券和积分</button>
     <button role="tab" data-tab="mall" aria-selected="false">积分商城</button>
     <button role="tab" data-tab="orders" aria-selected="false">订单</button>
+    <button role="tab" data-tab="arcade" aria-selected="false">游戏厅</button>
   </nav>
 </header>
 
@@ -732,10 +798,11 @@ document.querySelectorAll(".mode button").forEach((b) => b.addEventListener("cli
 $("#openSettings").addEventListener("click", () => openSettings());
 
 function go(tab) {
+  stopGame();
   state.tab = tab;
   $("#cartbar").classList.add("hidden");
   document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.tab === tab)));
-  ({ today: renderToday, order: renderOrder, campaigns: renderCampaigns, assets: renderAssets, mall: renderMall, orders: renderOrders })[tab]();
+  ({ today: renderToday, order: renderOrder, campaigns: renderCampaigns, assets: renderAssets, mall: renderMall, orders: renderOrders, arcade: renderArcade })[tab]();
   window.scrollTo({ top: 0 });
 }
 
@@ -1789,6 +1856,381 @@ function setDialog(html, bind) {
 function closeDialog() { $("#dlg").close(); $("#dlg").classList.remove("wide", "xwide"); }
 $("#dlg").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDialog(); });
 $("#dlg").addEventListener("close", () => $("#dlg").classList.remove("wide", "xwide"));
+
+/* ---------------------------------------------------------------- arcade
+   游戏厅：给自己玩，也给朋友玩。接薯条、叠叠乐、记忆翻牌是纯小游戏；老虎机和麦德尔用的是你的真实菜单、
+   券和积分（同一个最省引擎算价）；麦麦签和人格测试是图一乐。最高分只记在这个浏览器里。 */
+const ARCADE = [
+  { id: "fries", name: "接薯条", art: "fries", tag: "左右移动托盘，接住薯条和汉堡，躲开火苗", best: "分" },
+  { id: "stack", name: "汉堡叠叠乐", art: "burger", tag: "点一下放下馅料，对齐越准叠得越高", best: "层" },
+  { id: "slot", name: "麦麦老虎机", art: "ticket", tag: "转出今天吃啥，按你的券和积分算好实付", best: "" },
+  { id: "guess", name: "麦德尔猜价", art: "coffee", tag: "每日一题：猜叠券叠积分后最少付多少", best: "" },
+  { id: "memory", name: "翻翻乐", art: "icecream", tag: "翻牌配对，记住每样餐品在哪", best: "步" },
+  { id: "fortune", name: "麦麦签", art: "gift", tag: "摇一支今天的签：宜、忌和幸运餐品", best: "" },
+  { id: "persona", name: "麦麦人格", art: "toy", tag: "6 道题测出你是哪种麦门信徒", best: "" },
+];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("mcd-arcade-" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("mcd-arcade-" + k, JSON.stringify(v)); } catch (e) {} },
+};
+function stopGame() { if (state.gameStop) { state.gameStop(); state.gameStop = null; } }
+const artImg = {};
+function spriteOf(key) {
+  if (!artImg[key]) {
+    const img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${ART[key] || ART.meal}</svg>`);
+    artImg[key] = img;
+  }
+  return artImg[key];
+}
+async function copyText(text, ok) {
+  try { await navigator.clipboard.writeText(text); toast(ok || "已复制"); } catch (e) { toast("复制失败，手动选中文字复制吧"); }
+}
+
+function renderArcade() {
+  stopGame();
+  const m = $("#main");
+  m.innerHTML = `<h2>游戏厅</h2><p class="sub">等餐的时候玩一把，或者拉朋友比比分。老虎机和猜价用的是你真实的菜单、券和积分。</p>
+    <div class="arcade-grid">${ARCADE.map((g) => {
+      const best = g.best ? store.get("best-" + g.id, null) : null;
+      return `<button class="arcade-card" data-game="${g.id}"><span class="ill">${artSvg(g.art)}</span>
+        <b>${esc(g.name)}</b><small>${esc(g.tag)}</small>${best != null ? `<span class="chip save">最好 ${best} ${g.best}</span>` : ""}</button>`;
+    }).join("")}</div>
+    <p class="muted" style="font-size:13px">终端里也能玩：<code>mcd play</code>；等餐时 <code>mcd play fries --wait last</code>，餐好了自动停下给你取餐码。</p>`;
+  m.querySelectorAll("[data-game]").forEach((b) => b.addEventListener("click", () => openGame(b.dataset.game)));
+}
+function gameShell(id, inner) {
+  const g = ARCADE.find((x) => x.id === id);
+  $("#main").innerHTML = `<div class="game-head"><button class="btn ghost" id="backArcade">← 游戏厅</button><h2>${esc(g.name)}</h2></div>
+    <p class="sub">${esc(g.tag)}</p><div class="game-body" id="gameBody">${inner}</div>`;
+  $("#backArcade").addEventListener("click", renderArcade);
+  return $("#gameBody");
+}
+function openGame(id) {
+  stopGame();
+  ({ fries: gameFries, stack: gameStack, slot: gameSlot, guess: gameGuess, memory: gameMemory, fortune: gameFortune, persona: gamePersona })[id]();
+}
+function saveBest(id, value, better) {
+  const old = store.get("best-" + id, null);
+  if (old == null || better(value, old)) { store.set("best-" + id, value); return true; }
+  return false;
+}
+function canvasBox(w, h) {
+  return `<div class="game-canvas"><canvas width="${w}" height="${h}" style="aspect-ratio:${w}/${h}"></canvas><div class="game-over" hidden></div></div>`;
+}
+function setupCanvas(cv, w, h) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+  return ctx;
+}
+function overlay(box, html, onAgain) {
+  const o = box.querySelector(".game-over");
+  o.innerHTML = html + `<div class="actions" style="justify-content:center"><button class="btn gold" data-again>再来一局</button></div>`;
+  o.hidden = false;
+  o.querySelector("[data-again]").addEventListener("click", () => { o.hidden = true; onAgain(); });
+}
+function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+/* ---- 接薯条 ---- */
+function gameFries() {
+  const W = 360, H = 520;
+  const body = gameShell("fries", canvasBox(W, H) + `<p class="muted game-help">← → / A D 移动，或者在画面上左右拖动。薯条 1 分，麦乐鸡 2 分，汉堡 5 分，碰到火苗扣一条命。</p>`);
+  const cv = body.querySelector("canvas"), ctx = setupCanvas(cv, W, H);
+  const KINDS = [["fries", 1, 58], ["chicken", 2, 16], ["burger", 5, 7], ["hot", 0, 19]];
+  let s, raf, last, keys = {};
+  const reset = () => { s = { x: W / 2, score: 0, lives: 3, combo: 0, drops: [], spawn: 0.5, t: 0, over: false, flash: "", ft: 0 }; last = performance.now(); loop(last); };
+  const pick = () => { const r = Math.random() * 100; let a = 0; for (const k of KINDS) { a += k[2]; if (r < a) return k; } return KINDS[0]; };
+  function step(dt) {
+    s.t += dt; s.ft = Math.max(0, s.ft - dt);
+    const v = 330;
+    if (keys.left) s.x -= v * dt; if (keys.right) s.x += v * dt;
+    s.x = Math.max(40, Math.min(W - 40, s.x));
+    s.spawn -= dt;
+    if (s.spawn <= 0) { const k = pick(); s.drops.push({ x: 24 + Math.random() * (W - 48), y: -30, k: k[0], p: k[1], r: Math.random() * 6 }); s.spawn = Math.max(0.3, 0.85 - s.score / 160) * (0.7 + Math.random() * 0.6); }
+    const speed = 170 + Math.min(s.score, 150) * 2.2;
+    for (const d of s.drops) {
+      d.y += speed * dt; d.r += dt * 2;
+      if (!d.done && d.y > H - 70 && d.y < H - 40 && Math.abs(d.x - s.x) < 52) {
+        d.done = true;
+        if (d.k === "hot") { s.lives--; s.combo = 0; s.flash = "烫！"; s.ft = 0.8; if (s.lives <= 0) s.over = true; }
+        else { s.combo++; const mult = 1 + Math.floor(s.combo / 10); s.score += d.p * mult; if (s.combo % 10 === 0) { s.flash = `连接 ${s.combo}！x${mult}`; s.ft = 1; } }
+      }
+      if (!d.done && d.y > H && d.k !== "hot") { d.done = true; s.combo = 0; }
+    }
+    s.drops = s.drops.filter((d) => !d.done && d.y < H + 40);
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#fff7e6"); sky.addColorStop(1, "#ffe4dc");
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    for (const d of s.drops) {
+      ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(Math.sin(d.r) * 0.25);
+      if (d.k === "hot") { ctx.font = "34px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🔥", 0, 0); }
+      else ctx.drawImage(spriteOf(d.k), -22, -22, 44, 44);
+      ctx.restore();
+    }
+    ctx.fillStyle = "#ffc93c"; ctx.strokeStyle = "#221c35"; ctx.lineWidth = 3;
+    rrect(ctx, s.x - 52, H - 52, 104, 22, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#ff5a36"; rrect(ctx, s.x - 52, H - 34, 104, 8, 4); ctx.fill();
+    ctx.fillStyle = "#221c35"; ctx.font = "bold 18px system-ui"; ctx.textAlign = "left"; ctx.fillText(`${s.score} 分`, 14, 28);
+    ctx.textAlign = "right"; ctx.fillStyle = "#ff5a36"; ctx.fillText("♥".repeat(s.lives) + "♡".repeat(3 - s.lives), W - 14, 28);
+    if (s.combo >= 3) { ctx.textAlign = "left"; ctx.fillStyle = "#19a974"; ctx.font = "bold 14px system-ui"; ctx.fillText(`连接 ${s.combo}`, 14, 48); }
+    if (s.ft > 0) { ctx.textAlign = "center"; ctx.font = "bold 26px system-ui"; ctx.fillStyle = "#221c35"; ctx.fillText(s.flash, W / 2, H / 2); }
+  }
+  function loop(now) {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (!s.over) { step(dt); draw(); raf = requestAnimationFrame(loop); return; }
+    draw();
+    const rec = saveBest("fries", s.score, (a, b) => a > b);
+    overlay(body, `<h3>${s.score} 分${rec ? "，新纪录！" : ""}</h3><p class="muted">最好成绩 ${store.get("best-fries", s.score)} 分</p>
+      <p><button class="btn ghost" data-share>复制战绩</button></p>`, reset);
+    body.querySelector("[data-share]").addEventListener("click", () => copyText(`我在「麦麦交易终端」接薯条拿了 ${s.score} 分，来比比？`, "战绩已复制，发给朋友吧"));
+  }
+  const kd = (e) => { if (["ArrowLeft", "a", "A"].includes(e.key)) { keys.left = true; e.preventDefault(); } if (["ArrowRight", "d", "D"].includes(e.key)) { keys.right = true; e.preventDefault(); } };
+  const ku = (e) => { if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = false; if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = false; };
+  const mv = (e) => { const r = cv.getBoundingClientRect(); const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; s.x = (cx / r.width) * W; };
+  document.addEventListener("keydown", kd); document.addEventListener("keyup", ku);
+  cv.addEventListener("mousemove", mv); cv.addEventListener("touchmove", (e) => { mv(e); e.preventDefault(); }, { passive: false });
+  state.gameStop = () => { cancelAnimationFrame(raf); document.removeEventListener("keydown", kd); document.removeEventListener("keyup", ku); };
+  reset();
+}
+
+/* ---- 汉堡叠叠乐 ---- */
+function gameStack() {
+  const W = 340, H = 520, LH = 20;
+  const body = gameShell("stack", canvasBox(W, H) + `<p class="muted game-help">点击画面或按空格，把滑动的馅料放下。没对齐的部分会被切掉；连续三次完美对齐会变宽一点。</p>`);
+  const cv = body.querySelector("canvas"), ctx = setupCanvas(cv, W, H);
+  const LAYERS = [["牛肉饼", "#7a3f22"], ["芝士", "#ffc93c"], ["生菜", "#19a974"], ["番茄", "#ff5a36"], ["洋葱", "#efe4ff"], ["鸡排", "#e0893a"], ["培根", "#c0392b"]];
+  let s, raf, last;
+  const next = () => { const top = s.tower[s.tower.length - 1]; const [n, c] = LAYERS[(s.tower.length - 1) % LAYERS.length]; s.dir = Math.random() < 0.5 ? 1 : -1; s.mv = { x: s.dir > 0 ? 0 : W - top.w, w: top.w, c, n }; };
+  const reset = () => { s = { tower: [{ x: W / 2 - 80, w: 160, c: "#f2a65a", n: "面包" }], perfect: 0, over: false, cam: 0, flash: "", ft: 0 }; next(); last = performance.now(); loop(last); };
+  const drop = () => {
+    if (s.over) return;
+    const top = s.tower[s.tower.length - 1], m = s.mv;
+    const l = Math.max(top.x, m.x), r = Math.min(top.x + top.w, m.x + m.w);
+    if (r - l <= 2) { s.over = true; s.fall = { ...m, y: 0 }; return; }
+    if (Math.abs(m.x - top.x) < 4) { s.perfect++; s.tower.push({ x: top.x, w: Math.min(top.w + (s.perfect % 3 === 0 ? 12 : 0), W - top.x), c: m.c, n: m.n }); s.flash = s.perfect % 3 === 0 ? "完美 x3，变宽了！" : "完美！"; s.ft = 0.8; }
+    else { s.perfect = 0; s.tower.push({ x: l, w: r - l, c: m.c, n: m.n }); }
+    next();
+  };
+  function loop(now) {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    const n = s.tower.length - 1;
+    if (!s.over) { s.mv.x += s.dir * (150 + n * 14) * dt; if (s.mv.x + s.mv.w > W) { s.mv.x = W - s.mv.w; s.dir = -1; } if (s.mv.x < 0) { s.mv.x = 0; s.dir = 1; } }
+    s.ft = Math.max(0, s.ft - dt);
+    const want = Math.max(0, (s.tower.length + 3) * LH - (H - 80)); s.cam += (want - s.cam) * Math.min(1, dt * 6);
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = "#eef3ff"; ctx.fillRect(0, 0, W, H);
+    const yOf = (i) => H - 30 - (i + 1) * LH + s.cam;
+    ctx.lineWidth = 2.5; ctx.strokeStyle = "#221c35";
+    s.tower.forEach((t, i) => { ctx.fillStyle = t.c; rrect(ctx, t.x, yOf(i), t.w, LH - 2, i === 0 ? 10 : 5); ctx.fill(); ctx.stroke(); });
+    if (!s.over) { ctx.fillStyle = s.mv.c; rrect(ctx, s.mv.x, yOf(s.tower.length) - 14, s.mv.w, LH - 2, 5); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = "#221c35"; ctx.font = "bold 18px system-ui"; ctx.textAlign = "left"; ctx.fillText(`${n} 层`, 14, 28);
+    if (s.ft > 0) { ctx.textAlign = "center"; ctx.font = "bold 22px system-ui"; ctx.fillStyle = "#19a974"; ctx.fillText(s.flash, W / 2, 60); }
+    if (!s.over) { raf = requestAnimationFrame(loop); return; }
+    const rec = saveBest("stack", n, (a, b) => a > b);
+    const fill = [...new Set(s.tower.slice(1).map((t) => t.n))].join("、");
+    overlay(body, `<h3>${n} 层${rec ? "，新纪录！" : ""}</h3><p class="muted">${fill ? "这个汉堡夹了：" + esc(fill) : "一层都没叠上"}</p>
+      <p><button class="btn ghost" data-share>复制战绩</button></p>`, reset);
+    body.querySelector("[data-share]").addEventListener("click", () => copyText(`我在「麦麦交易终端」叠了一个 ${n} 层的汉堡，你能叠几层？`, "战绩已复制"));
+  }
+  const kd = (e) => { if (e.code === "Space") { e.preventDefault(); drop(); } };
+  document.addEventListener("keydown", kd); cv.addEventListener("pointerdown", drop);
+  state.gameStop = () => { cancelAnimationFrame(raf); document.removeEventListener("keydown", kd); };
+  reset();
+}
+
+/* ---- 麦麦老虎机（真实菜单 + 你的券和积分） ---- */
+function gameSlot() {
+  const body = gameShell("slot", `<div class="slot-ctl">
+      <label>最多付 ¥<input id="slotBudget" type="number" min="0" step="1" placeholder="不限" inputmode="decimal"></label>
+      <label>最多 <input id="slotKcal" type="number" min="0" step="50" placeholder="不限" inputmode="numeric"> 千卡</label>
+      <button class="btn gold" id="spin">转一下</button></div>
+    <div class="slot-machine"><div class="reels">${["主食", "小食", "饮料"].map((t, i) => `<div class="reel" id="reel${i}"><small>${t}</small><span class="ill">${artSvg("meal")}</span><b>?</b></div>`).join("")}</div>
+    <div id="slotResult" class="slot-result muted">按“转一下”，看看今天吃啥</div></div>`);
+  let timers = [];
+  state.gameStop = () => timers.forEach(clearInterval);
+  body.querySelector("#spin").addEventListener("click", async () => {
+    const btn = body.querySelector("#spin"); btn.disabled = true;
+    const args = ["play", "slot"]; const b = body.querySelector("#slotBudget").value, k = body.querySelector("#slotKcal").value;
+    if (b) args.push("--budget", b); if (k) args.push("--kcal", k);
+    const res = body.querySelector("#slotResult"); res.textContent = "转起来了…";
+    const reelsEl = [0, 1, 2].map((i) => body.querySelector("#reel" + i));
+    const pools = [["巨无霸", "麦辣鸡腿堡", "麦香鱼"], ["薯条", "麦乐鸡", "鸡翅"], ["可乐", "拿铁", "美式"]];
+    timers.forEach(clearInterval);
+    timers = reelsEl.map((el, i) => setInterval(() => { const n = pools[i][Math.floor(Math.random() * pools[i].length)]; el.classList.add("spinning"); el.querySelector("b").textContent = n; el.querySelector(".ill").innerHTML = artSvg(artKey(n)); }, 80));
+    const [d] = await Promise.all([run(args), new Promise((r) => setTimeout(r, 900))]);
+    if (d.ok && d.reels) { pools[0] = d.reels.main; pools[1] = d.reels.side; pools[2] = d.reels.drink; }
+    if (!d.ok) { timers.forEach(clearInterval); reelsEl.forEach((el) => el.classList.remove("spinning")); res.innerHTML = `<span class="err">${esc(d.error)}</span>`; btn.disabled = false; return; }
+    const items = d.combo.items;
+    for (let i = 0; i < 3; i++) {
+      await new Promise((r) => setTimeout(r, 420));
+      clearInterval(timers[i]); const el = reelsEl[i]; el.classList.remove("spinning");
+      el.querySelector("b").textContent = items[i] ? items[i].name : "—"; el.querySelector(".ill").innerHTML = items[i] ? pic(items[i].image, items[i].name) : artSvg("meal");
+      el.classList.add("landed"); setTimeout(() => el.classList.remove("landed"), 400);
+    }
+    const c = d.combo;
+    res.innerHTML = `<div class="slot-price"><span class="muted"><s>${yuan(c.original_yuan)}</s></span> → <b class="num big-pay">${yuan(c.pay_yuan)}</b>
+        <span class="muted">${c.points_used ? `用券和 ${c.points_used.toLocaleString()} 积分` : c.saving_yuan ? "用了券" : "没有能叠的券"}${c.kcal ? ` · 约 ${c.kcal.toLocaleString()} 千卡` : ""}</span></div>
+      <div class="actions" style="justify-content:center"><button class="btn ghost" data-share>发给饭搭子</button><button class="btn gold" data-cart>就吃这套，去点餐</button></div>`;
+    res.classList.remove("muted");
+    res.querySelector("[data-cart]").addEventListener("click", async () => {
+      await ensureMenu();
+      for (const it of items) if ((state.menu || []).some((m) => m.code === it.code)) setQty(it.code, 1);
+      toast("已加进购物车"); go("order");
+    });
+    res.querySelector("[data-share]").addEventListener("click", () => copyText(`老虎机替我决定了：${items.map((x) => x.name).join(" + ")}，叠完券只要 ${yuan(c.pay_yuan)}，一起吗？`, "已复制，发给饭搭子吧"));
+    btn.disabled = false; btn.textContent = "再转一次";
+  });
+}
+
+/* ---- 麦德尔猜价（每日一题） ---- */
+async function gameGuess(again = false) {
+  const body = gameShell("guess", loader("正在出今天的题…", "要看你的券和积分", true));
+  const d = await run(["play", "guess", ...(again ? ["--again"] : [])]);
+  if (!d.ok) { body.innerHTML = `<p class="err">${esc(d.error)}</p>`; return; }
+  const key = "maidle-" + d.date, prev = !again && store.get(key, null);
+  const ans = Math.round(d.answer.pay_yuan * 100), close = Math.round(d.close_yuan * 100);
+  let guesses = prev ? prev.guesses : [];
+  const mark = (g) => { const diff = g - ans; return Math.abs(diff) <= close ? ["hit", "猜中了！", "🟩"] : Math.abs(diff) <= 300 ? [diff > 0 ? "wh" : "wl", diff > 0 ? "高了一点" : "低了一点", "🟨"] : [diff > 0 ? "h" : "l", diff > 0 ? "高了" : "低了", diff > 0 ? "🟥" : "🟦"]; };
+  const draw = () => {
+    const done = guesses.length >= d.tries || guesses.some((g) => mark(g)[0] === "hit");
+    const won = guesses.some((g) => mark(g)[0] === "hit");
+    const share = `麦德尔 #${d.no}${again ? "（加练）" : ""} ${won ? guesses.length : "X"}/${d.tries} ${guesses.map((g) => mark(g)[2]).join("")}`;
+    body.innerHTML = `<div class="guess">
+      <div class="guess-cart">${d.cart.map((c) => `<div class="tile"><div class="plate">${pic(c.image, c.name)}</div><b>${esc(c.name)}</b><span class="num">${yuan(c.price_yuan)}</span></div>`).join("")}</div>
+      <p class="muted">#${d.no} · ${esc(d.store)} · 你有 <b>${(d.points || 0).toLocaleString()}</b> 积分${d.coupons.length ? `，券：${esc(d.coupons.join("、"))}` : "，没有能用的券"}</p>
+      <p>叠完券和积分，这一单最少要付多少？最多猜 ${d.tries} 次，差 ${yuan(d.close_yuan)} 以内算中。</p>
+      <ol class="guess-list">${guesses.map((g) => { const [k, t, e] = mark(g); return `<li class="${k}"><span>${e}</span><b class="num">${yuan(g / 100)}</b><span>${t}</span></li>`; }).join("")}</ol>
+      ${done ? `<div class="guess-end"><h3>${won ? "猜中了！" : "没猜中"} 答案 <span class="num">${yuan(d.answer.pay_yuan)}</span></h3>
+          <p class="muted">原价 ${yuan(d.answer.original_yuan)}${d.answer.points_used ? `，用 ${d.answer.points_used.toLocaleString()} 积分` : ""}${d.answer.saving_yuan ? `，省 ${yuan(d.answer.saving_yuan)}` : ""}</p>
+          <ul class="guess-plan">${(d.answer.plan.lines || []).map((l) => `<li>${esc(l.item || l.name || "")}：${l.pay_with === "points" ? `${l.points} 积分换` : l.pay_with === "coupon" ? "用券 " + esc(l.coupon || "") : "现金"} <span class="num">${yuan(l.pay_yuan)}</span></li>`).join("")}</ul>
+          <pre class="share">${esc(share)}</pre>
+          <div class="actions" style="justify-content:flex-start"><button class="btn ghost" data-share>复制战绩</button><button class="btn ghost" data-again>来道加练题</button></div></div>`
+        : `<form class="guess-form"><input id="g" type="number" step="0.1" min="0" inputmode="decimal" placeholder="例如 23.5" required autofocus><button class="btn gold">猜</button></form>`}
+    </div>`;
+    const f = body.querySelector(".guess-form");
+    if (f) f.addEventListener("submit", (e) => { e.preventDefault(); const v = parseFloat(body.querySelector("#g").value); if (isNaN(v)) return; guesses.push(Math.round(v * 100)); if (!again) store.set(key, { guesses }); draw(); });
+    const sh = body.querySelector("[data-share]"); if (sh) sh.addEventListener("click", () => copyText(share, "战绩已复制"));
+    const ag = body.querySelector("[data-again]"); if (ag) ag.addEventListener("click", () => gameGuess(true));
+  };
+  draw();
+}
+
+/* ---- 翻翻乐 ---- */
+function gameMemory() {
+  const KEYS = ["burger", "fries", "chicken", "drink", "coffee", "icecream", "pie", "breakfast"];
+  const body = gameShell("memory", `<div class="mem-bar"><span id="memMoves">0 步</span><span id="memTime">0 秒</span><button class="btn ghost" id="memNew">重新洗牌</button></div><div class="mem-grid" id="memGrid"></div>`);
+  let cards, open, moves, matched, t0, tick;
+  const start = () => {
+    clearInterval(tick);
+    cards = [...KEYS, ...KEYS].map((k, i) => ({ k, i })).sort(() => Math.random() - 0.5);
+    open = []; moves = 0; matched = 0; t0 = 0;
+    body.querySelector("#memMoves").textContent = "0 步"; body.querySelector("#memTime").textContent = "0 秒";
+    const g = body.querySelector("#memGrid");
+    g.innerHTML = cards.map((c, i) => `<button class="mem-card" data-i="${i}" aria-label="翻牌"><span class="front">${artSvg(c.k)}</span><span class="back"></span></button>`).join("");
+    g.querySelectorAll(".mem-card").forEach((b) => b.addEventListener("click", () => flip(b)));
+  };
+  const flip = (b) => {
+    if (b.classList.contains("open") || open.length === 2) return;
+    if (!t0) { t0 = Date.now(); tick = setInterval(() => { body.querySelector("#memTime").textContent = `${Math.floor((Date.now() - t0) / 1000)} 秒`; }, 500); }
+    b.classList.add("open"); open.push(b);
+    if (open.length < 2) return;
+    moves++; body.querySelector("#memMoves").textContent = `${moves} 步`;
+    const [a, c] = open;
+    if (cards[a.dataset.i].k === cards[c.dataset.i].k) {
+      a.classList.add("done"); c.classList.add("done"); open = []; matched++;
+      if (matched === KEYS.length) {
+        clearInterval(tick); const secs = Math.floor((Date.now() - t0) / 1000);
+        const rec = saveBest("memory", moves, (x, y) => x < y);
+        toast(`全部配对！${moves} 步 ${secs} 秒${rec ? "，新纪录" : ""}`);
+      }
+    } else setTimeout(() => { a.classList.remove("open"); c.classList.remove("open"); open = []; }, 700);
+  };
+  body.querySelector("#memNew").addEventListener("click", start);
+  state.gameStop = () => clearInterval(tick);
+  start();
+}
+
+/* ---- 麦麦签 ---- */
+function gameFortune() {
+  const LOTS = [["上上签", "薯条刚出锅，不用等。"], ["上签", "今天的券都用得上。"], ["上签", "第二份半价会遇到对的人。"], ["中签", "冰淇淋机今天心情不错。"],
+    ["中签", "点单前先看一眼快过期的积分。"], ["中签", "早餐时段比你想的结束得早。"], ["下签", "番茄酱可能不太够，记得多要一包。"], ["上签", "麦旋风搅得特别匀。"]];
+  const YI = ["第二份半价", "用掉快过期的券", "约饭搭子", "尝个新品", "加一份薯条", "早起吃早餐", "清空积分", "给自己点杯咖啡"];
+  const JI = ["空腹开会", "把薯条留到最后", "错过午市", "犹豫不决", "一个人吃全家桶", "忘带取餐码"];
+  const day = new Date().toISOString().slice(0, 10), saved = store.get("fortune-" + day, null);
+  const body = gameShell("fortune", `<div class="fortune"><div class="tube" id="tube"><span class="ill">${artSvg("gift")}</span></div>
+    <div id="lot" class="lot"></div><div class="actions" style="justify-content:center"><button class="btn gold" id="shake">${saved ? "看今天的签" : "摇一摇"}</button></div>
+    <p class="muted" style="text-align:center;font-size:12px">每天一支，图个乐。</p></div>`);
+  const show = (f) => {
+    body.querySelector("#lot").innerHTML = `<div class="lot-card"><small>${esc(day)}</small><h3>${esc(f.lot)}</h3><p>${esc(f.text)}</p>
+      <div class="yiji"><div><b>宜</b>${f.yi.map((x) => `<span>${esc(x)}</span>`).join("")}</div><div><b>忌</b>${f.ji.map((x) => `<span>${esc(x)}</span>`).join("")}</div></div>
+      <p class="lucky"><span class="ill">${artSvg(artKey(f.lucky))}</span>幸运餐品：<b>${esc(f.lucky)}</b></p>
+      <button class="btn ghost" data-share>复制签文</button></div>`;
+    body.querySelector("[data-share]").addEventListener("click", () => copyText(`今天的麦麦签：${f.lot}。${f.text} 宜${f.yi.join("、")}，忌${f.ji.join("、")}，幸运餐品${f.lucky}。`, "签文已复制"));
+  };
+  body.querySelector("#shake").addEventListener("click", async () => {
+    if (saved) { show(saved); return; }
+    const tube = body.querySelector("#tube"); tube.classList.add("shaking");
+    await ensureMenu().catch(() => {});
+    setTimeout(() => {
+      tube.classList.remove("shaking");
+      const r = (a) => a[Math.floor(Math.random() * a.length)];
+      const names = (state.menu || []).map((m) => m.name).filter((n) => !/套餐/.test(n));
+      const [lot, text] = r(LOTS);
+      const yi = [...YI].sort(() => Math.random() - 0.5).slice(0, 2), ji = [...JI].sort(() => Math.random() - 0.5).slice(0, 2);
+      const f = { lot, text, yi, ji, lucky: names.length ? r(names) : "薯条" };
+      store.set("fortune-" + day, f); show(f);
+    }, 1100);
+  });
+}
+
+/* ---- 麦麦人格 ---- */
+function gamePersona() {
+  const P = {
+    breakfast: ["早餐战神", "breakfast", "七点的猪柳蛋麦满分是你的闹钟，早餐时段结束前从不迟到。", ["满分", "美式", "薯饼"]],
+    night: ["夜宵游侠", "burger", "城市睡了你还醒着，深夜的巨无霸最懂你。", ["巨无霸", "薯条", "可乐"]],
+    sweet: ["甜品星人", "icecream", "正餐只是甜品的前奏，第二个胃永远为麦旋风留着。", ["麦旋风", "冰淇淋", "派"]],
+    coffee: ["咖啡续命官", "coffee", "没有拿铁的上午不算开始，你的血液里流着浓缩。", ["拿铁", "美式", "派"]],
+    chicken: ["炸鸡猎人", "chicken", "鸡翅、麦乐鸡、脆汁鸡，你对酥脆的追求从不妥协。", ["鸡翅", "麦乐鸡", "可乐"]],
+    saver: ["省钱大师", "ticket", "券叠券、积分换券，你点的每一单都是一道最优化题。", ["巨无霸", "薯条", "拿铁"]],
+  };
+  const Q = [
+    ["周末你几点吃第一口麦当劳？", [["早上 8 点", "breakfast"], ["下午 3 点", "sweet"], ["晚上 11 点", "night"], ["看券什么时候能用", "saver"]]],
+    ["点单时你先看哪一栏？", [["小食", "chicken"], ["甜品", "sweet"], ["咖啡", "coffee"], ["我的券", "saver"]]],
+    ["薯条你怎么吃？", [["蘸麦旋风", "sweet"], ["配可乐趁热吃", "night"], ["留着最后吃", "breakfast"], ["只吃券里送的", "saver"]]],
+    ["朋友约你去麦当劳，你会说？", [["来杯咖啡续个命", "coffee"], ["鸡翅我包了", "chicken"], ["明早吧，早餐划算", "breakfast"], ["等我算一下怎么最省", "saver"]]],
+    ["下面哪个最让你心动？", [["新口味麦旋风", "sweet"], ["脆汁鸡回归", "chicken"], ["第二杯半价", "coffee"], ["积分快过期提醒", "saver"]]],
+    ["你的麦当劳时刻是？", [["加班后的那一份", "night"], ["上班路上的那一杯", "coffee"], ["周末早餐的阳光", "breakfast"], ["和朋友分一桶", "chicken"]]],
+  ];
+  const body = gameShell("persona", `<div class="persona" id="persona"></div>`);
+  const box = body.querySelector("#persona");
+  let i = 0, score = {};
+  const ask = () => {
+    if (i >= Q.length) return result();
+    const [q, opts] = Q[i];
+    box.innerHTML = `<div class="quiz"><small class="muted">第 ${i + 1} / ${Q.length} 题</small><div class="bar-track"><i style="width:${(i / Q.length) * 100}%;background:var(--ketchup)"></i></div>
+      <h3>${esc(q)}</h3><div class="quiz-opts">${opts.map(([t, k]) => `<button class="btn ghost" data-k="${k}">${esc(t)}</button>`).join("")}</div></div>`;
+    box.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { score[b.dataset.k] = (score[b.dataset.k] || 0) + 1; i++; ask(); }));
+  };
+  const result = async () => {
+    const top = Object.entries(score).sort((a, b) => b[1] - a[1])[0][0];
+    const [name, art, desc, wants] = P[top];
+    store.set("persona", name);
+    box.innerHTML = `<div class="persona-card"><span class="ill">${artSvg(art)}</span><small>你的麦麦人格</small><h3>${esc(name)}</h3><p>${esc(desc)}</p>
+      <p class="muted">本命套餐：${esc(wants.join(" + "))}</p>
+      <div class="actions" style="justify-content:center"><button class="btn ghost" data-share>复制结果</button><button class="btn ghost" data-redo>再测一次</button><button class="btn gold" data-cart>点一份本命套餐</button></div></div>`;
+    box.querySelector("[data-share]").addEventListener("click", () => copyText(`我的麦麦人格是「${name}」：${desc} 你是哪种？`, "结果已复制"));
+    box.querySelector("[data-redo]").addEventListener("click", () => { i = 0; score = {}; ask(); });
+    box.querySelector("[data-cart]").addEventListener("click", async () => {
+      await ensureMenu();
+      let n = 0;
+      for (const w of wants) { const m = (state.menu || []).find((x) => x.name.includes(w) && !/套餐/.test(x.name)); if (m) { setQty(m.code, 1); n++; } }
+      toast(n ? `加了 ${n} 样进购物车` : "这家店暂时没有这几样"); if (n) go("order");
+    });
+  };
+  ask();
+}
 
 loadStore();
 go("today");
