@@ -45,3 +45,36 @@ def test_style_and_script_stay_separate():
     assert "function " not in css and "=>" not in css
     import re as _re
     assert not _re.search(r"^\.[a-z][\w-]* \{ [a-z-]+:", js, _re.M)   # no CSS rules pasted into the script
+
+
+def test_warm_client_caches_reads_and_forgets_after_writes():
+    from mcd_terminal.web import WarmClient
+
+    class Fake:
+        calls = 0
+
+        def call(self, tool, args=None):
+            Fake.calls += 1
+            return {"tool": tool, "n": Fake.calls}
+
+        def close(self):
+            raise AssertionError("the page's session must stay open between commands")
+    w = WarmClient(Fake)
+    a = w.call("mall-points-products")
+    assert w.call("mall-points-products") == a and Fake.calls == 1          # cached
+    assert w.call("calculate-price", {"items": []}) != w.call("calculate-price", {"items": []})   # never cached
+    w.close()                                                               # commands closing is a no-op
+    w.call("mall-create-order", {"skuId": 1})                               # a write clears the memory
+    assert w.call("mall-points-products") != a
+
+
+def test_call_many_keeps_order_and_isolates_failures():
+    from mcd_terminal.client import McdError, call_many
+
+    class C:
+        def call(self, tool, args):
+            if args["i"] == 2:
+                raise McdError("boom")
+            return args["i"] * 10
+    out = call_many(C(), "x", [{"i": i} for i in range(5)])
+    assert out[:2] == [0, 10] and isinstance(out[2], McdError) and out[3:] == [30, 40]

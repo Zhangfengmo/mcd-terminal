@@ -560,9 +560,20 @@ def order_plan(p: "OrderPlan") -> None:  # noqa: F821 - imported lazily to avoid
 
 
 def pay_link(url: str, amount_fen: int | None) -> None:
+    """付款：终端里直接画出手机要扫的二维码（jumpToApp，扫了就进 App 收银台），再给电脑上的支付页链接。"""
+    from .pay import scan_url, terminal_qr
+    scan = scan_url(url) or url
     say(Text.assemble(("订单已创建，待支付 ", ""), (yuan(amount_fen), f"bold {GREEN}"),
-                      ("。打开链接完成付款：", "")))
-    console.print(Text.assemble(("  ", ""), (url, f"underline {ACCENT}")))
+                      ("。用手机扫码（微信或相机都行），在麦当劳 App 里付款：", "")))
+    qr = terminal_qr(scan) if console.is_terminal and not os.environ.get("NO_COLOR") else None
+    if qr:
+        console.print()
+        for line in qr:
+            console.print(Text.assemble(("  ", ""), (line, "black on white")))
+        console.print()
+    else:
+        console.print(Text.assemble(("  手机打开：", DIM), (scan, f"underline {ACCENT}")))
+    console.print(Text.assemble(("  电脑上打开支付页：", DIM), (url, f"underline {ACCENT}")))
 
 
 # ------------------------------------------------------------------ generic pieces

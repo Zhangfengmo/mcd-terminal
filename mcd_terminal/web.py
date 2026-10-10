@@ -44,6 +44,106 @@ _img_cache: dict[str, tuple[str, bytes]] = {}
 
 _lock = threading.Lock()  # the CLI keeps module-level state; run one command at a time
 
+# ------------------------------------------------------------------ one warm client for the whole page
+# A CLI run opens an MCP session, does its calls and closes it. The page runs dozens of commands, so it
+# keeps ONE session open and remembers read-only answers for a short while: switching tabs, opening a
+# party or a campaign no longer repeats the same handshake and the same big lookups (menu, mall, nutrition).
+# Anything that changes the account (ordering, redeeming, drawing, booking…) clears the memory.
+TTL = {
+    "list-nutrition-foods": 6 * 3600,
+    "mall-points-products": 600, "mall-product-detail": 600, "campaign-calendar": 600,
+    "query-meals": 300, "query-meal-detail": 300, "query-nearby-stores": 300, "delivery-query-stores": 300,
+    "query-party-city": 600, "query-party-store": 300, "query-party-store-date": 120, "query-party-store-session": 60,
+    "query-promotions": 300, "query-meal-assistance": 300, "query-survey-coupon": 300,
+    "query-lottery-info": 60, "query-my-prizes": 60,
+    "query-my-account": 30, "query-my-coupons": 30, "available-coupons": 30, "query-store-coupons": 30,
+    "order-list": 15, "query-order": 10, "mall-order-list": 30, "mall-order-detail": 60,
+    "delivery-query-addresses": 60,
+}
+WRITES = {"create-order", "mall-create-order", "cancel-order", "auto-bind-coupons", "delivery-create-address",
+          "draw-lottery", "party-order-create"}
+
+
+class WarmClient:
+    """Wraps McdClient / DemoClient: keeps the session open and caches read-only answers (see TTL)."""
+
+    def __init__(self, make: Any) -> None:
+        self._make = make
+        self._inner: Any = None
+        self._cache: dict[str, tuple[float, Any]] = {}
+        self._mu = threading.RLock()
+        self.hits = self.misses = 0
+
+    @property
+    def inner(self) -> Any:
+        with self._mu:
+            if self._inner is None:
+                self._inner = self._make()
+            return self._inner
+
+    @property
+    def url(self) -> str:
+        return getattr(self.inner, "url", "")
+
+    def call(self, tool: str, args: dict[str, Any] | None = None) -> Any:
+        import time
+        ttl = TTL.get(tool, 0)
+        key = tool + json.dumps(args or {}, sort_keys=True, ensure_ascii=False, default=str)
+        with self._mu:
+            hit = self._cache.get(key)
+            if ttl and hit and time.monotonic() - hit[0] < ttl:
+                self.hits += 1
+                return hit[1]
+            self.misses += 1
+        inner = self.inner
+        try:
+            data = inner.call(tool, args)   # outside the lock: parallel lookups (call_many) stay parallel
+        except Exception:
+            if tool in WRITES:
+                with self._mu:
+                    self._cache.clear()   # it may have half-happened: don't trust anything cached
+            raise
+        with self._mu:
+            if tool in WRITES:
+                self._cache.clear()
+            elif ttl:
+                if len(self._cache) > 500:
+                    self._cache.clear()
+                self._cache[key] = (time.monotonic(), data)
+        return data
+
+    def list_tools(self) -> list[str]:
+        return self.inner.list_tools()
+
+    def close(self) -> None:
+        """Commands call close() when they finish; the page's session stays open."""
+
+    def shutdown(self) -> None:
+        with self._mu:
+            if self._inner is not None:
+                with contextlib.suppress(Exception):
+                    self._inner.close()
+                self._inner = None
+
+    def warm(self, tools: list[tuple[str, dict[str, Any] | None]]) -> None:
+        for tool, args in tools:
+            with contextlib.suppress(Exception):
+                self.call(tool, args)
+
+
+_clients: dict[bool, WarmClient] = {}
+
+
+def shared_client(demo: bool) -> WarmClient:
+    if demo not in _clients:
+        if demo:
+            from .demo import DemoClient
+            _clients[demo] = WarmClient(DemoClient)
+        else:
+            from .client import McdClient
+            _clients[demo] = WarmClient(McdClient)
+    return _clients[demo]
+
 
 def run_command(args: list[str], demo: bool) -> dict[str, Any]:
     """Run `mcd --json [--demo] <args>` in-process and return its JSON object."""
@@ -51,11 +151,12 @@ def run_command(args: list[str], demo: bool) -> dict[str, Any]:
         return {"ok": False, "error": f"不支持的命令：{args[0] if args else '（空）'}"}
     if any(a in ("--help", "-h") for a in args):
         return {"ok": False, "error": "不支持 --help"}
-    from .cli import app
+    from .cli import app, state
 
     full = ["--json", *(["--demo"] if demo else []), *args]
     out = io.StringIO()
     with _lock:
+        state._client = shared_client(demo)
         saved_argv = sys.argv
         sys.argv = ["mcd", *full]  # used to build follow-up commands (confirm_with, retry_with)
         try:
@@ -248,6 +349,12 @@ def make_handler(secret: str, demo: bool) -> type[BaseHTTPRequestHandler]:
 class _Server(ThreadingHTTPServer):
     daemon_threads = True
 
+    def server_close(self) -> None:
+        super().server_close()
+        for c in list(_clients.values()):
+            c.shutdown()
+        _clients.clear()
+
     def handle_error(self, request: Any, client_address: Any) -> None:
         if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
             return  # the browser stopped waiting (e.g. switched page while an image loaded)
@@ -261,6 +368,11 @@ def serve(demo: bool = False, port: int = 0, open_browser: bool = True) -> tuple
         os.environ["MCD_WEB_DEMO"] = "1"
     httpd = _Server(("127.0.0.1", port), make_handler(secret, demo))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/?s={secret}"
+    # open the MCP session and fetch the big, slow-changing lookups while the browser is starting
+    warm = shared_client(demo)
+    threading.Thread(target=warm.warm, daemon=True, args=([
+        ("now-time-info", None), ("query-my-account", None), ("campaign-calendar", None),
+        ("mall-points-products", None), ("list-nutrition-foods", None)],)).start()
     if open_browser:
         threading.Timer(0.3, lambda: webbrowser.open(url)).start()
     return httpd, url

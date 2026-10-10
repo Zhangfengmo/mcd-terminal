@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import httpx
@@ -51,6 +53,8 @@ class McdClient:
         self._session_id: str | None = None
         self._next_id = 1
         self._initialized = False
+        self._init_mu = threading.Lock()
+        self._mu = threading.Lock()   # calls may run in parallel (see call_many); ids and the handshake are shared
 
     # ---- low level -------------------------------------------------------
     def _headers(self) -> dict[str, str]:
@@ -82,8 +86,9 @@ class McdClient:
         return resp
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        req_id = self._next_id
-        self._next_id += 1
+        with self._mu:
+            req_id = self._next_id
+            self._next_id += 1
         resp = self._post({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
         msg = _extract_response(resp, req_id)
         if "error" in msg:
@@ -94,12 +99,15 @@ class McdClient:
     def _ensure_initialized(self) -> None:
         if self._initialized:
             return
-        self._request(
-            "initialize",
-            {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}, "clientInfo": CLIENT_INFO},
-        )
-        self._initialized = True
-        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        with self._init_mu:
+            if self._initialized:
+                return
+            self._request(
+                "initialize",
+                {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}, "clientInfo": CLIENT_INFO},
+            )
+            self._initialized = True
+            self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
 
     # ---- public ----------------------------------------------------------
     def list_tools(self) -> list[str]:
@@ -190,3 +198,20 @@ def _extract_response(resp: httpx.Response, req_id: int) -> dict[str, Any]:
     if isinstance(msg, list):  # batched
         msg = next((m for m in msg if m.get("id") == req_id), {})
     return msg
+
+
+def call_many(client: Any, tool: str, args_list: list[dict[str, Any]], workers: int = 6) -> list[Any]:
+    """Call one tool for many arguments in parallel (e.g. product details for a whole listing).
+
+    Returns results in the same order; a failed call gives its McdError instead of raising, so one bad
+    item never sinks the batch. Stays well under the server's 600 calls/minute limit.
+    """
+    def one(a: dict[str, Any]) -> Any:
+        try:
+            return client.call(tool, a)
+        except McdError as e:
+            return e
+    if len(args_list) <= 1:
+        return [one(a) for a in args_list]
+    with ThreadPoolExecutor(max_workers=min(workers, len(args_list))) as pool:
+        return list(pool.map(one, args_list))

@@ -41,7 +41,7 @@ def joined(x: dict[str, Any]) -> int:
 
 def countdown(hours: float) -> str:
     if hours <= 0:
-        return "已截止"
+        return "已过提前预订期"
     if hours < 1:
         return "不到 1 小时"
     if hours < 48:
@@ -75,8 +75,8 @@ class Fit:
 
     @property
     def verdict(self) -> str:
-        if self.expired:
-            return "已过预约截止"
+        if self.expired:   # 服务端还列着这天，但按“提前 N 天”已经过了：可能约不上
+            return "已过提前预订期，可能约不上"
         if not self.fits:
             return f"位置不够（只剩 {self.left}）" if self.kind == 2 else f"人太多（最多 {self.max} 人）"
         if self.kind == 1:
@@ -118,7 +118,7 @@ def rank(sessions: list[tuple[str, dict[str, Any]]], kinds: list[int], people: i
             continue
         for k in kinds:
             f = assess(day, x, k, people, now, advance)
-            if not f.expired and f.fits:
+            if f.fits:
                 fits.append(f)
 
     def key(f: Fit) -> tuple:
@@ -127,8 +127,8 @@ def rank(sessions: list[tuple[str, dict[str, Any]]], kinds: list[int], people: i
         # 人够时包场最稳（不靠别人）；人不够时拼团更有希望（别的家庭也会来报）
         kind_pref = f.kind != 1 if f.safe else f.kind != 2
         if by:   # 有想办的日子（比如生日）：稳的里面挑离那天最近的
-            return (not f.safe, f.need, closeness, kind_pref, -f.joined, f.session.get("timeStart") or "")
-        return (not f.safe, f.need, kind_pref, -f.joined, closeness, f.session.get("timeStart") or "")
+            return (f.expired, not f.safe, f.need, closeness, kind_pref, -f.joined, f.session.get("timeStart") or "")
+        return (f.expired, not f.safe, f.need, kind_pref, -f.joined, closeness, f.session.get("timeStart") or "")
     return sorted(fits, key=key)
 
 

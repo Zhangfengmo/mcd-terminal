@@ -31,7 +31,7 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 
 1. **永远加 `--json`**：`mcd --json <命令>`，stdout 只有一个 JSON 对象。先看 `ok`；为 `false` 时把 `error` 用自己的话告诉用户。
 2. **不经用户同意，绝不加 `--yes`**。`order`、`spend`、`buy`、`claim`、`cancel`、`draw`、`party --book` 会扣积分、领券、抽奖、创建或取消订单、预约派对。不加 `--yes` 时只返回方案，并标记 `"status": "needs_confirmation"`。你要把方案讲给用户听（买什么、每样怎么付、用多少积分、实付多少），用户明确同意后，再执行返回值里的 `confirm_with` 命令（即原命令加 `--yes`）。积分扣除不可撤销。
-3. **你不能替用户付款**。下单成功后会返回 `order.pay_url`，把链接交给用户自己打开支付。
+3. **你不能替用户付款**。下单成功后返回 `order.scan_url`（手机扫码或点开就进麦当劳 App 收银台，优先给这个）、`order.app_url`（手机上直接拉起 App）和 `order.pay_url`（电脑上看的扫码页）。把链接交给用户自己付款。
 
 ## 常见任务
 
@@ -59,7 +59,7 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “帮我抽一次奖” | `mcd --json draw` → 把 `cost`（本次扣多少次数/积分，`lottery.then` 不为空时说明次数用完后改扣积分）告诉用户 → 用户明确说“抽”后执行 `confirm_with`；一次只抽一次，不要试抽、连抽；“试试看”“能抽就抽”不算确认 |
 | “有什么派对/亲子活动”“生日派对哪天能约” | `mcd --json events`，再 `mcd --json party <名字> --city <城市>` |
 | “孩子生日想办个派对，我们大概 4 个人” | `mcd --json party <名字> --city <城市> --people 4 --by <生日>`：看 `recommended`（按“最不怕凑不齐”排好，`safe` 为 true 表示不用等别人，`need_more` 是还差几人、`deadline`/`hours_left` 是拉人截止）。拼团截止前凑不够最少人数会**自动取消并退款**，需提前 3 天预订——一定把这两条和风险讲给用户 |
-| “帮我约周六上午的生日派对” | `mcd --json party <名字> --city <城市> --book`：`status` 为 `choose_session` 时让用户选场次再加 `--date --time`；`choose_type` 时问包场还是拼团再加 `--type`；人数用 `--count`；`needs_confirmation` 时讲清楚门店、时间、方式、人数、价格，同意后 `confirm_with`，把 `order.pay_url` 给用户付款；拼团还差人时把 `invite_text` 给用户转发拉人，并建议用 `reminders` 里的命令设截止前提醒 |
+| “帮我约周六上午的生日派对” | `mcd --json party <名字> --city <城市> --book`：`status` 为 `choose_session` 时让用户选场次再加 `--date --time`；`choose_type` 时问包场还是拼团再加 `--type`；人数用 `--count`；`needs_confirmation` 时讲清楚门店、时间、方式、人数、价格，同意后 `confirm_with`，把 `order.scan_url`（没有就用 `pay_url`）给用户付款；拼团还差人时把 `invite_text` 给用户转发拉人，并建议用 `reminders` 里的命令设截止前提醒 |
 | “问卷送的券呢”“上次填的问卷有券吗” | `mcd --json survey [订单号]` |
 | “给公司订团餐，看看怎么凑满减” | `mcd --json order <餐品> --group`，看 `group_promotions`：`applied` 是已享受的一档，`next.add_yuan` 是再加多少到下一档、`next.fill_with` 是刚好够的一样 |
 | “券快过期了提醒我”“这个活动开始时提醒我” | `mcd --json remind coupons` / `remind campaign -t <活动名>` → 讲清楚加什么提醒 → 同意后 `confirm_with` |
@@ -105,7 +105,7 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 - **`suggestions` 是加购建议**：区分“用户想买的”和“顺便更划算的”，包括快过期的闲置券（`kind: coupon`，看 `days_left`）、用剩积分能兑的商品（`points`）、第二份半价（`promo`）。把 `message` 转述给用户问要不要加；用户要的话执行 `command`（会得到新方案），不要的话照原方案走。不要替用户决定加不加。
 - **`campaigns_today`**：今天和本店菜单相关的活动，可以顺带告诉用户。
 
-`pay_with` 的取值：`cash` 付现金，`coupon` 用已有的券，`points` 先用积分兑换再使用。执行成功后 `status` 变为 `ordered`，并带上 `order.order_id`、`order.pay_url` 和 `order.pay_yuan`。
+`pay_with` 的取值：`cash` 付现金，`coupon` 用已有的券，`points` 先用积分兑换再使用。执行成功后 `status` 变为 `ordered`，并带上 `order.order_id`、`order.scan_url`、`order.app_url`、`order.pay_url` 和 `order.pay_yuan`。
 
 **status 的取值**：`planned` 只是方案（`--dry-run`）· `needs_confirmation` 等待用户同意 · `ordered`/`done` 已执行 · `cancelled` 用户取消 · `nothing_to_do` 无事可做。
 

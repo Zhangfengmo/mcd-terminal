@@ -15,7 +15,7 @@ from rich.text import Text
 
 from . import agent
 from . import render as ui
-from .client import McdClient, McdError
+from .client import McdClient, McdError, call_many
 from .content import (
     find_nutrition, goods_text, parse_calendar, parse_mall_orders, parse_nutrition, status_hint,
 )
@@ -23,9 +23,10 @@ from .demo import DemoClient
 from .order import Unit, parse_menu, parse_wants, plan_order, price_from_menu, suggest_extras
 from .ordering import (
     NotOnMenu, checkout, fmt_distance, group_promotions, load_menu, mall_options, owned_coupons, pick_scene, quote,
-    related_campaigns, remember_order, resolve_units, scene_line,
+    related_campaigns, remember_order, resolve_units, scene_line, _spu,
 )
 from . import __version__
+from . import pay as pay_links
 from .prefs import Prefs, clear_token, load_token, prefs_path, save_token, token_path
 from .valuation import (
     Account, MarketItem, Plan, is_claimable, market_item, on_shelf, optimize, parse_bind_result,
@@ -385,11 +386,10 @@ def _scan_market(limit: int) -> list[MarketItem]:
     items: list[MarketItem] = []
     failed = 0
     with ui.thinking("比价中") as spin:
-        for n, row in enumerate(rows, 1):
-            spin.detail = f"({n}/{len(rows)}) {row.get('spuName', '')}"
-            try:
-                detail = state.client.call("mall-product-detail", {"spuId": int(row["spuId"])})
-            except (McdError, KeyError, ValueError):
+        spin.detail = f"{len(rows)} 个商品"
+        details = call_many(state.client, "mall-product-detail", [{"spuId": _spu(r)} for r in rows])
+        for row, detail in zip(rows, details):
+            if isinstance(detail, McdError):
                 detail, failed = None, failed + 1
             items.append(market_item(row, detail))
     if rows:
@@ -680,7 +680,9 @@ def order(
         pay = price.get("price") if isinstance(price.get("price"), int) else plan.pay_fen
         _out(status="ordered", order={
             "order_id": oid or None, "pay_url": result.get("payH5Url"), "pay_yuan": agent.yuan(pay),
-            "next": "把 pay_url 发给用户，由用户自己打开付款；付款后可用 mcd --json track 查看进度"})
+            "scan_url": pay_links.scan_url(result.get("payH5Url")), "app_url": pay_links.app_url(result.get("payH5Url")),
+            "next": "把 scan_url 给用户（手机扫码或点开，会进麦当劳 App 收银台；在手机上也可以直接用 app_url 打开 App）；"
+                    "pay_url 是电脑上看的扫码页。由用户自己付款；付款后可用 mcd --json track 查看进度"})
         if result.get("payH5Url"):
             ui.pay_link(str(result["payH5Url"]), pay)
         saved = plan.original_fen - (pay if isinstance(pay, int) else plan.pay_fen)
@@ -1813,10 +1815,10 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
     base = int(limit.get("baseCount") or 1)            # 至少买几份（尊享版生日派对是 5）
     single = int(limit.get("limitSingle") or 0)         # 一单最多几份
     open_ = [(d, x) for d, x in raw if (x.get("leftNum") or 0) > 0
-             and pty.deadline(d, adv) > now and (not at or str(x.get("timeStart", "")).startswith(at))]
+             and (not at or str(x.get("timeStart", "")).startswith(at))]
     if not open_:
         _out(status="no_session")
-        raise McdError("这几天的场次都约满了或过了预约截止，换一天（--date / --by）或换一家店（--pick 2）试试")
+        raise McdError("这几天的场次都约满了，换一天（--date / --by）或换一家店（--pick 2）试试")
     guess = count or 1
     ranked = pty.rank(open_, kinds, guess, now, adv, by_date)
     # 选场次：有多个就按“最稳”排好让人挑
@@ -1884,7 +1886,10 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
                 "people": detail.get("partyPeople") or None, "age": detail.get("partyAge") or None,
                 "risk": fit.as_dict(), "safer_option": safer.as_dict() if safer else None}
     _out(status="planned", booking=summary_)
-    if ptype == 1:
+    if fit.expired:
+        risk = Text(f"⚠ 这一场已经不满“提前 {adv} 天预订”，门店可能不接，以 App 为准；想稳一点换晚几天的场次",
+                    style=f"bold {ui.AMBER}")
+    elif ptype == 1:
         risk = Text("整场只有你们，不用等别人凑团", style=ui.GREEN)
     elif fit.need:
         risk = Text(f"⚠ 加上你们还差 {fit.need} 人成团：{fit.deadline:%m-%d %H:%M} 前凑不齐会自动取消并退款"
@@ -1921,7 +1926,8 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
     invite = pty.invite_text(title, str(st.get("name")), fit) if ptype == 2 else None
     _out(status="booked", booking=summary_, invite_text=invite,
          reminders=[remind_day] + ([remind_cut] if remind_cut else []),
-         order={"order_id": r.get("orderId"), "pay_url": url or None,
+         order={"order_id": r.get("orderId"), "pay_url": url or None, "scan_url": pay_links.scan_url(url),
+                "app_url": pay_links.app_url(url),
                 "pay_yuan": agent.yuan(amount) if amount is not None else None,
                 "next": "把 pay_url 发给用户，由用户自己打开付款" + ("；把 invite_text 给用户转发到亲友群拉人" if invite else "")})
     if url:

@@ -10,7 +10,7 @@ from typing import Any, Callable
 from rich.text import Text
 
 from . import render as ui
-from .client import McdError
+from .client import McdError, call_many
 from .order import (
     MenuItem, OrderPlan, OwnedCoupon, Unit, match_menu, names_match, parse_menu, parse_store_coupons,
     plan_order, similar_items,
@@ -340,6 +340,13 @@ def _item_part(row: dict[str, Any]) -> str:
     return re.sub(r"^\s*\d+(?:\.\d+)?\s*元", "", str(row.get("spuName", ""))).strip()
 
 
+def _spu(row: dict[str, Any]) -> int:
+    try:
+        return int(row["spuId"])
+    except (KeyError, TypeError, ValueError):
+        return 0
+
+
 def mall_options(client: Any, units: list[Unit], menu: list[MenuItem] | None = None) -> list[MarketItem]:
     listings = _rows(ui.call(client, "mall-points-products",
                              summary=lambda d: f"积分商城共 {len(_rows(d))} 个可兑换商品"))
@@ -354,13 +361,9 @@ def mall_options(client: Any, units: list[Unit], menu: list[MenuItem] | None = N
     if not relevant:
         return items
     with ui.thinking("比价中") as spin:
-        for n, row in enumerate(relevant, 1):
-            spin.detail = f"({n}/{len(relevant)}) {row.get('spuName', '')}"
-            try:
-                detail = client.call("mall-product-detail", {"spuId": int(row["spuId"])})
-            except (McdError, KeyError, ValueError):
-                detail = None
-            items.append(market_item(row, detail))
+        spin.detail = f"{len(relevant)} 个商品"
+        details = call_many(client, "mall-product-detail", [{"spuId": _spu(r)} for r in relevant])
+        items = [market_item(r, None if isinstance(d, McdError) else d) for r, d in zip(relevant, details)]
     ui.tool_line("mall-product-detail", times=len(relevant))
     ui.result(f"找到 {len(items)} 个本店能用积分兑换的商品")
     return items
