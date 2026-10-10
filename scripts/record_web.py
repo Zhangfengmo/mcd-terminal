@@ -1,4 +1,4 @@
-"""录制 docs/web-demo.gif：网页版从活动地图加购、小票单个移除，到扫码付款。
+"""录制 docs/web-demo.gif：活动地图加购 → 点餐和小票 → 扫码付款 → 派对推荐 → 积分抽奖 → 热量统计。
 
     pip install playwright && python scripts/record_web.py      # 需要 Chromium 和 ffmpeg
 
@@ -93,9 +93,47 @@ with sync_playwright() as p:
     t_yes = time.monotonic()
     pg.wait_for_selector('dialog .qr svg', timeout=20000)
     t_qr = time.monotonic()
-    pg.wait_for_timeout(3500)
-    pg.mouse.move(pos[0]+40, pos[1]+30, steps=20)
-    pg.wait_for_timeout(600)
+    pg.wait_for_timeout(3000)
+    t_qr_end = time.monotonic()                                  # 顶部演示到这里为止
+    click(pg, 'dialog [data-close]', 500)
+
+    # 派对：按人数推荐最稳的场次
+    click(pg, '[data-tab=campaigns]', 1500)
+    click(pg, pg.locator('[data-event]').first, 900)
+    pg.wait_for_selector('dialog [data-city], dialog .scard', timeout=15000)
+    if pg.locator('dialog [data-city]').count():
+        click(pg, pg.locator('dialog [data-city]').first, 0)
+    pg.wait_for_selector('dialog .scard', timeout=15000)
+    pg.wait_for_timeout(1200)
+    for _ in range(2):
+        click(pg, 'dialog [data-pp="1"]', 500)
+    for chip in pg.locator('dialog [data-day]').all()[:2]:
+        click(pg, chip, 900)
+    best = pg.locator('dialog .scard.best [data-book]')
+    click(pg, best.first if best.count() else pg.locator('dialog [data-book]').first, 0)
+    pg.wait_for_selector('dialog [data-yes]', timeout=15000)
+    pg.wait_for_timeout(2200)
+    click(pg, 'dialog [data-close]', 500)
+
+    # 积分抽奖：先说扣多少，确认后抽一次
+    wheel = pg.locator('#main .wheel').first
+    pg.evaluate("document.querySelector('#main .wheel').scrollIntoView({block: 'center'})")
+    pg.wait_for_timeout(500)
+    bx = wheel.bounding_box()                                    # it spins, so no "stable" wait here
+    pg.mouse.move(bx['x'] + bx['width'] / 2, bx['y'] + bx['height'] / 2, steps=22); pg.wait_for_timeout(300)
+    wheel.dispatch_event('click'); pg.wait_for_timeout(1500)
+    click(pg, 'dialog [data-draw]', 900)
+    click(pg, 'dialog [data-yes]', 0)
+    pg.wait_for_selector('dialog .win', timeout=15000)
+    pg.wait_for_timeout(2000)
+    click(pg, 'dialog [data-close]', 500)
+
+    # 吃了多少
+    click(pg, '[data-tab=orders]', 0)
+    pg.wait_for_selector('.hero-kcal', timeout=15000)
+    pg.wait_for_timeout(1500)
+    click(pg, '#intake [data-p="month"]', 1200)
+    move_to(pg, pg.locator('.kcal-chart .bar').last); pg.wait_for_timeout(1800)
     path = pg.video.path()
     t_end = time.monotonic()
     ctx.close(); b.close()
@@ -109,12 +147,13 @@ cut_from = dur - (t_end - t_yes) + 1.5      # “正在下单…”留 1.5 秒
 cut_to = dur - (t_end - t_qr) - 0.1
 out = ROOT / "docs" / "web-demo.gif"
 graph = (f"[0:v]trim=0:{cut_from:.2f},setpts=PTS-STARTPTS[a];[0:v]trim=start={cut_to:.2f},setpts=PTS-STARTPTS[b];"
-         "[a][b]concat=n=2:v=1[c];[c]setpts=PTS/1.4,fps=10,scale=900:-1:flags=lanczos,split[x][y];"
+         "[a][b]concat=n=2:v=1[c];[c]setpts=PTS/1.5,fps=9,scale=900:-1:flags=lanczos,split[x][y];"
          "[x]palettegen=max_colors=96:stats_mode=full[p];[y][p]paletteuse=dither=none:diff_mode=rectangle")
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-filter_complex", graph, str(out)], check=True)
 keep = os.environ.get("MCD_WEBM_OUT")          # scripts/make_demo.sh 用它拼出顶部的完整演示
 if keep:
     shutil.copy(path, keep)
-    Path(keep).with_suffix(".cut").write_text(f"{cut_from:.2f} {cut_to:.2f}\n")
+    hero_end = dur - (t_end - t_qr_end)
+    Path(keep).with_suffix(".cut").write_text(f"{cut_from:.2f} {cut_to:.2f} {hero_end:.2f}\n")
 shutil.rmtree(vid, ignore_errors=True)
 print("wrote", out)
