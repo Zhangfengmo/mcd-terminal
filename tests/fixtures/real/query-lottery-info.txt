@@ -1,0 +1,38 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 积分抽奖活动信息 (Type: object)
+  - **data.status**: 业务状态 (Type: object)
+    - **data.status.code**: 状态码，如 SUCCESS/NOT_LOGIN/NO_ACTIVITY/ACTIVITY_ERROR/ACTIVITY_EXPIRED (Type: string)
+    - **data.status.message**: 状态文案 (Type: string)
+  - **data.activityCode**: 活动号 (Type: string)
+  - **data.activityStatusText**: 活动状态文案（未开始/进行中/已结束/活动不存在） (Type: string)
+  - **data.activityName**: 活动名称 (Type: string)
+  - **data.beginTime**: 活动开始时间 (Type: string)
+  - **data.endTime**: 活动结束时间 (Type: string)
+  - **data.drawPoint**: 单次所需积分 (Type: string)
+  - **data.drawTypeText**: 抽奖消耗规则（无/消耗积分抽奖/消耗任务完成次数/先消耗次数再消耗积分抽奖） (Type: string)
+  - **data.availableTimes**: 剩余可抽次数（消耗任务完成次数、先消耗次数再消耗积分时返回） (Type: integer)
+  - **data.availablePoint**: 当前可用积分（消耗积分、先消耗次数再消耗积分时返回） (Type: string)
+  - **data.drawDecision**: 服务端计算的资源决策；仅评估积分/次数资源，库存、人群、风控等以实际抽奖结果为准 (Type: object)
+    - **data.drawDecision.resourceEligible**: 当前积分/次数资源是否满足本次抽奖 (Type: boolean)
+    - **data.drawDecision.reason**: 资源不足原因；满足时为 null (Type: string)
+    - **data.drawDecision.nextConsumption**: 本次实际消耗，type 为 NONE/POINTS/CHANCES (Type: object)
+    - **data.drawDecision.fallbackConsumption**: 混合规则本次先消耗次数时的后续积分消耗说明；其他情况为 null (Type: object)
+  - **data.prizes**: 奖品列表 (Type: array)
+    - **data.prizes[].name**: 奖品名称 (Type: string)
+    - **data.prizes[].imageUrl**: 奖品图片 (Type: string)
+    - **data.prizes[].typeText**: 奖品类型文案 (Type: string)
+- **message**: 响应消息 (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": {"status": {"code": "SUCCESS", "message": "成功"}, "activityCode": "269t", "activityStatusText": "进行中", "activityName": "周六麦金喜抽奖", "beginTime": "2025-09-06 00:00:00", "endTime": "2030-12-31 23:59:59", "drawPoint": "24", "drawTypeText": "消耗积分抽奖", "availablePoint": "101", "drawDecision": {"resourceEligible": true, "nextConsumption": {"type": "POINTS", "points": "24", "chances": 0, "text": "本次将消耗 24 积分"}}, "prizes": [{"name": "积分霸王餐", "imageUrl": "https://img.mcd.cn/gallery/b18b950ad36106be.png", "typeText": "优惠券"}, {"name": "麦金卡7天", "imageUrl": "https://img.mcd.cn/gallery/b036824806214a63.png", "typeText": "会员卡"}, {"name": "早餐卡7天", "imageUrl": "https://img.mcd.cn/gallery/3965a5fd8e911db4.png", "typeText": "权益卡"}, {"name": "下单立减3元券", "imageUrl": "https://img.mcd.cn/gallery/ce3b2ebc8f729b18.png", "typeText": "优惠券"}, {"name": "下单立减2元券", "imageUrl": "https://img.mcd.cn/gallery/05e92c61916ad743.png", "typeText": "优惠券"}, {"name": "下单立减1元券", "imageUrl": "https://img.mcd.cn/gallery/0c99483d7c138087.png", "typeText": "优惠券"}, {"name": "大杯可口可乐3.6元优惠券", "imageUrl": "https://img.mcd.cn/gallery/1b1ef0afda1f7315.png", "typeText": "优惠券"}, {"name": "麦旋风二选一7元优惠券", "imageUrl": "https://img.mcd.cn/gallery/9e9c6f085095c448.png", "typeText": "优惠券"}, {"name": "圆筒冰淇淋4折优惠券", "imageUrl": "https://img.mcd.cn/gallery/4f137327743732f6.png", "typeText": "优惠券"}, {"name": "阳光橙麦炫酷5折优惠券", "imageUrl": "https://img.mcd.cn/gallery/8777f7cf733abdb2.png", "typeText": "优惠券"}, {"name": "麦辣鸡腿汉堡5折优惠券", "imageUrl": "https://img.mcd.cn/gallery/3b55ceda769f81b4.png", "typeText": "优惠券"}, {"name": "麦辣三件套4折优惠券", "imageUrl": "https://img.mcd.cn/gallery/a1ba40191821679c.png", "typeText": "优惠券"}, {"name": "麦香鱼三件套4.5折优惠券", "imageUrl": "https://img.mcd.cn/gallery/c0ff13ad86c508f9.png", "typeText": "优惠券"}, {"name": "不素之霸三件套6折优惠券", "imageUrl": "https://img.mcd.cn/gallery/19d413e45786c5c5.png", "typeText": "优惠券"}, {"name": "辣薯二件套6.8折优惠券", "imageUrl": "https://img.mcd.cn/gallery/e1f3035ea2b86c6e.png", "typeText": "优惠券"}, {"name": "麦辣鸡翅派6.8折优惠券", "imageUrl": "https://img.mcd.cn/gallery/e1f3035ea2b86c6e.png", "typeText": "优惠券"}, {"name": "麦辣鸡翅麦乐鸡6.8折优惠券", "imageUrl": "https://img.mcd.cn/gallery/e1f3035ea2b86c6e.png", "typeText": "优惠券"}, {"name": "双重麦乐鸡6.8折优惠券", "imageUrl": "https://img.mcd.cn/gallery/e1f3035ea2b86c6e.png", "typeText": "优惠券"}, {"name": "双重薯薯6.8折优惠券", "imageUrl": "https://img.mcd.cn/gallery/e1f3035ea2b86c6e.png", "typeText": "优惠券"}, {"name": "苹板支撑四件套立减8元券", "imageUrl": "https://img.mcd.cn/gallery/d0cd6cf7d8c6f8ae.png", "typeText": "优惠券"}, {"name": "牛气满满三件套立减8元券", "imageUrl": "https://img.mcd.cn/gallery/834b6a76fb5fa276.png", "typeText": "优惠券"}, {"name": "蜜汁快乐三件套立减6元券", "imageUrl": "https://img.mcd.cn/gallery/45e26c49c99ae912.png", "typeText": "优惠券"}, {"name": "麦乐送满66减6元券", "imageUrl": "https://img.mcd.cn/gallery/02c70c44caab1a43.png", "typeText": "优惠券"}, {"name": "10会员积分", "imageUrl": "https://img.mcd.cn/gallery/f899b61ed60b8148.png", "typeText": "积分奖"}, {"name": "12会员积分", "imageUrl": "https://img.mcd.cn/gallery/b88f7c2c0bde07b9.png", "typeText": "积分奖"}, {"name": "28会员积分", "imageUrl": "https://img.mcd.cn/gallery/c3052fa7725fd054.png", "typeText": "积分奖"}, {"name": "8会员积分", "imageUrl": "https://img.mcd.cn/gallery/ced2a16125e4c4ff.png", "typeText": "积分奖"}]}}

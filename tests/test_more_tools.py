@@ -19,7 +19,7 @@ RULES = [
 
 def test_promotions_parse_reduce_and_discount():
     ps = parse_promotions(RULES)
-    assert [p.text for p in ps] == ["满¥100减¥10 / 满¥200减¥30", "满¥300享7折（部分餐品）"]
+    assert [p.text for p in ps] == ["满¥100减¥10 / 满¥200减¥30", "满¥300享7折（个别餐品除外）"]
     assert ps[1].covers("BURGER") and not ps[1].covers("COFFEE")
 
 

@@ -901,7 +901,7 @@ async function loadSessions(e, city) {
   const rows = (d.days || []).flatMap((day) => (day.sessions || []).map((x) => ({ ...x, date: day.date })));
   box.innerHTML = `<p style="margin:12px 0 6px"><b>${esc(d.store.name)}</b> <span class="muted" style="font-size:13px">${esc(d.store.distance || "")} · ${esc(d.city || "")}</span></p>
     ${rows.length ? `<div style="display:grid;gap:6px">${rows.map((x, i) => `<div class="extra" style="padding:6px 10px">
-      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 位" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}</span>` : ""}</p>
+      <p><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b> <span class="${x.left > 0 ? "chip save" : "chip"}">${x.left > 0 ? "余 " + x.left + " 位" : "已约满"}</span>${x.price_yuan != null ? ` <span class="muted">¥${x.price_yuan}/人</span>` : ""}</p>
       ${x.left > 0 ? `<button class="btn ghost" data-rs="${i}">⏰ 提醒我</button><button class="btn gold" data-book="${i}">预约</button>` : ""}</div>`).join("")}</div>` : `<p class="muted">最近没有可约的场次。</p>`}
     <p class="muted" style="font-size:13px">选好场次就能直接预约，下单后扫码付款；每一步都会先让你确认。</p>`;
   box.querySelectorAll("[data-book]").forEach((b) => b.addEventListener("click", () => bookParty(e, d, rows[Number(b.dataset.book)])));
@@ -917,23 +917,25 @@ async function bookParty(e, d, x) {
   const first = await run(base);
   if (!first.ok) { setDialog(`<h3>约不了</h3><p class="err">${esc(first.error)}</p><div class="actions"><button class="btn" data-close>知道了</button></div>`); return; }
   const fixed = first.status === "needs_confirmation" ? (first.booking || {}).type : null;
-  const lo = x.min || 1, hi = x.max || 99;
-  let kind = fixed || "包场", n = (first.booking || {}).count || (kind === "包场" ? lo : 1);
+  const bk = first.booking || {};
+  const lo = bk.min || x.min || 1, hi = bk.max || x.max || 99;
+  let kind = fixed || "包场", n = bk.count || (kind === "包场" ? lo : 1);
+  const each = x.price_yuan;   // 每人价格
   const draw = () => setDialog(`<h3>预约 ${esc(e.name)}</h3>
     <p class="muted">${esc(d.city || "")} ${esc(d.store.name)}</p>
     <div class="book-grid">
       <span>场次</span><b class="num">${esc(x.date)} ${esc(x.start)}–${esc(x.end)}</b>
       <span>方式</span>${fixed ? `<b>${esc(fixed)}</b>` : `<div class="seg" role="group">${["包场", "拼团"].map((k) => `<button data-kind="${k}" aria-pressed="${k === kind}">${k}</button>`).join("")}</div>`}
       <span>人数</span><div class="stepper"><button data-n="-1" aria-label="少一人">−</button><b class="num">${n}</b><button data-n="1" aria-label="多一人">+</button></div>
-      <span>价格</span><b class="num">${x.price_yuan != null ? "¥" + x.price_yuan : "以下单页为准"}</b>
+      <span>价格</span><b class="num">${each != null ? `约 ${yuan(each * n)} <small class="muted" style="font-weight:400">（¥${each}/人 × ${n}）</small>` : "以下单页为准"}</b>
     </div>
     <p class="muted" style="font-size:13px">${kind === "包场" ? "包场：整场只有你们，" + lo + "–" + hi + " 人" : "拼团：和其他家庭一起，这一场还剩 " + x.left + " 个位置"}。下单后扫码付款，退改以活动规则为准。</p>
     <div class="actions"><button class="btn ghost" data-close>先不约</button><button class="btn gold" data-yes>确认预约</button></div>`,
     (dlg) => {
-      dlg.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => { kind = b.dataset.kind; n = kind === "包场" ? Math.max(n, lo) : Math.min(n, x.left || n); draw(); }));
+      dlg.querySelectorAll("[data-kind]").forEach((b) => b.addEventListener("click", () => { kind = b.dataset.kind; n = kind === "包场" ? Math.max(n, x.min || lo) : Math.min(n, x.left || n); draw(); }));
       dlg.querySelectorAll("[data-n]").forEach((b) => b.addEventListener("click", () => {
         const max = kind === "拼团" ? Math.min(hi, x.left || hi) : hi;
-        n = Math.min(max, Math.max(1, n + Number(b.dataset.n))); draw();
+        n = Math.min(max, Math.max(kind === "包场" ? lo : 1, n + Number(b.dataset.n))); draw();
       }));
       dlg.querySelector("[data-yes]").addEventListener("click", async () => {
         setDialog(`<h3>正在预约…</h3>${loader("向门店锁定场次、创建订单", "请不要关闭页面", true)}`);

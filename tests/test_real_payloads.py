@@ -254,3 +254,82 @@ def test_no_favourites_no_orders_uses_the_delivery_address(replay):
     scene = _store_scene(C(), Prefs(), "pickup", None, None, 1)
     assert (seen["city"], seen["keyword"]) == ("上海市", "人民大道200号")
     assert scene.store_name == "麦当劳示例一路餐厅"
+
+
+# ---------------------------------------------------------------- the last four tools, on real responses
+class ReplayMore(ReplayClient):
+    """Party lookups, lottery, promotions and survey answered with captured (sanitized) responses."""
+    files = dict(ReplayClient.files, **{
+        "query-party-city": "query-party-city", "query-party-store": "query-party-store",
+        "query-party-store-date": "query-party-store-date", "query-party-store-session": "query-party-store-session",
+        "query-lottery-info": "query-lottery-info", "query-my-prizes": "query-my-prizes",
+        "query-promotions": "query-promotions", "query-survey-coupon": "query-survey-coupon"})
+    details = {1830: "mall-product-detail_party-both", 8516: "mall-product-detail_party-private"}
+
+    def call(self, tool, args=None):
+        assert tool not in ("party-order-create", "draw-lottery"), "replay must never book or draw"
+        if tool == "mall-product-detail" and int((args or {}).get("spuId", 0)) in self.details:
+            return load(self.details[int(args["spuId"])])
+        return super().call(tool, args)
+
+
+@pytest.fixture
+def replay_more(monkeypatch, tmp_path):
+    from mcd_terminal import cli
+    monkeypatch.setenv("MCD_HOME", str(tmp_path))
+    monkeypatch.setattr(cli.State, "client", property(lambda self: ReplayMore()))
+    return cli
+
+
+def _body(cli, *args):
+    import json
+    return json.loads(_invoke(cli, "--json", *args).output.strip().splitlines()[-1])
+
+
+def test_real_party_detail_carries_party_type_and_limits():
+    both, private = load("mall-product-detail_party-both"), load("mall-product-detail_party-private")
+    assert (both["shopId"], both["partyType"], private["partyType"]) == (5, -1, 1)
+    assert private["spuLimit"]["baseCount"] == 5 and both["skuList"][0]["price"] == "45"
+    s = load("query-party-store-session")[0]
+    assert (s["price"], s["partyMin"], s["partyMax"], s["leftNum"]) == (4500, 5, 12, 12)
+
+
+def test_real_party_listing_and_booking_plan(replay_more):
+    body = _body(replay_more, "party", "亲子读书会", "-c", "上海")
+    assert body["status"] == "listed" and body["store"]["code"] == "1450713"
+    assert body["days"][0]["sessions"][0]["price_yuan"] == 45.0
+    base = ["party", "亲子读书会", "-c", "上海", "--book", "--date", "2026-10-13", "--time", "10:30"]
+    assert _body(replay_more, *base)["status"] == "choose_type"            # partyType -1: ask
+    plan = _body(replay_more, *base, "--type", "拼团", "--count", "2")
+    assert plan["status"] == "needs_confirmation"
+    assert plan["booking"]["price_per_person_yuan"] == 45.0 and plan["booking"]["total_yuan"] == 90.0
+    # 尊享版生日派对: 包场 only, at least 5 people (spuLimit.baseCount)
+    vip = ["party", "一起开心鸭尊享版", "-c", "上海", "--book", "--date", "2026-10-13", "--time", "10:30"]
+    p = _body(replay_more, *vip)
+    assert p["status"] == "needs_confirmation" and p["booking"]["type"] == "包场" and p["booking"]["count"] == 5
+    assert p["booking"]["total_yuan"] == 225.0
+    assert _body(replay_more, *vip, "--count", "3")["ok"] is False
+
+
+def test_real_lottery_draw_needs_confirmation(replay_more):
+    body = _body(replay_more, "draw")
+    assert body["status"] == "needs_confirmation" and body["cost"] == "本次将消耗 24 积分"
+    assert body["lottery"]["eligible"] is True and body["lottery"]["prizes"]
+    mine = _body(replay_more, "prizes")["my_prizes"]
+    assert mine and all(p["status"] for p in mine)
+
+
+def test_real_group_promotions_split_by_meal_service():
+    from mcd_terminal.promos import for_service, parse_promotions, promo_status, summary
+    ps = parse_promotions(load("query-promotions"))
+    assert len(ps) == 12 and {p.service for p in ps} == {"GMS001", "GMS002", "GMS003"}
+    fresh = for_service(ps, "GMS001")
+    assert summary(fresh) == ["满¥300享7.8折 / 满¥500享7.4折 / 满¥1000享7折 / 满¥2000享6.6折（个别餐品除外）"]
+    st = promo_status(fresh, [("920100", 40000)])
+    assert st["applied"]["rule"] == "满¥300享7.8折" and st["applied"]["saving_fen"] == 8800
+    assert st["next"]["rule"] == "满¥500享7.4折" and st["next"]["gap_fen"] == 10000
+
+
+def test_real_survey_without_answer_is_not_an_error(replay_more):
+    body = _body(replay_more, "survey", "1030938700000000000000000000")
+    assert body["ok"] is True and body["surveys"] == []

@@ -167,8 +167,8 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("order item not on menu", ["--demo", "--json", "order", "巨无霸", "火星披萨", "--dry-run"], json=False,
         exit_code=1, contains=["not_on_menu"])
     add("order drive-thru", ["--demo", "order", "巨无霸", "--drive", "--dry-run"])
-    add("order group meal", ["--demo", "order", "巨无霸x10", "--group", "--service", "专人分餐", "--dry-run"],
-        contains=["query-promotions", "团餐优惠"])
+    add("order group meal", ["--demo", "order", "巨无霸x12", "--group", "--service", "专人分餐", "--dry-run"],
+        contains=["query-promotions", "团餐优惠", "满¥300享8.8折"])
     add("order group meal: gap to the next tier", ["--demo", "--json", "order", "巨无霸x3", "--group", "--no-points", "--dry-run"],
         json=True, contains=["group_promotions", "add_yuan"])
     add("order reservation", ["--demo", "order", "巨无霸", "--at", "2026-10-10 12:00", "--dry-run"])

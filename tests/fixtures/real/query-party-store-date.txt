@@ -1,0 +1,21 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 可预约日期列表 (Type: array)
+  - **data[].date**: 日期 (Type: string)
+  - **data[].storeCode**: 门店编码 (Type: string)
+  - **data[].spuId**: spuId (Type: number)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": [{"date": "2026-10-13", "storeCode": "1450713"}, {"date": "2026-10-14", "storeCode": "1450713"}, {"date": "2026-10-15", "storeCode": "1450713"}, {"date": "2026-10-16", "storeCode": "1450713"}, {"date": "2026-10-17", "storeCode": "1450713"}, {"date": "2026-10-18", "storeCode": "1450713"}, {"date": "2026-10-19", "storeCode": "1450713"}]}

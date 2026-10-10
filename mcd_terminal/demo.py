@@ -164,6 +164,8 @@ class DemoClient:
     def _party_detail(self, spu: int) -> dict[str, Any]:
         name, price, ptype = {701: ("生日派对（演示数据）", "58", -1), 702: ("小小厨师体验营（演示数据）", "72", 2)}[spu]
         return {"spuName": name, "spuId": spu, "images": [], "shopId": 5, "partyType": ptype,
+                "partyPeople": "6-20", "partyAge": "4-12", "partyRange": 3,
+                "spuLimit": {"ruleType": 1, "rule": "", "cycle": 0, "limitCount": -1, "baseCount": 1, "limitSingle": 29},
                 "note": "活动开始前 24 小时可免费取消（演示）", "detail": "",
                 "skuList": [{"skuId": 20000 + spu, "points": "0", "price": price, "specList": []}], "spuCategory": "1"}
 
@@ -275,10 +277,11 @@ class DemoClient:
             total += sub
         return rows, original, total
 
-    def _calculate_price(self, items: list[dict[str, Any]], beType: int = 1, storeCode: str = "", **_: Any) -> dict[str, Any]:
+    def _calculate_price(self, items: list[dict[str, Any]], beType: int = 1, storeCode: str = "",
+                         gmServiceCode: str = "", **_: Any) -> dict[str, Any]:
         rows, original, total = self._price_items(items)
-        if int(beType) == 6:   # 企业团餐：满减 / 满折，取最优一条
-            total -= self._group_saving(rows, storeCode)
+        if int(beType) == 6:   # 企业团餐：按所选助餐服务的满折
+            total -= self._group_saving(rows, storeCode, gmServiceCode)
         delivery = 600 if int(beType) in (2, 6) else 0
         return {
             "productOriginalPrice": original, "productPrice": total,
@@ -290,8 +293,9 @@ class DemoClient:
             "mealAssistanceList": [],
         }
 
-    def _create_order(self, items: list[dict[str, Any]], storeCode: str = "", beType: int = 1, **_: Any) -> dict[str, Any]:
-        price = self._calculate_price(items, beType=beType, storeCode=storeCode)
+    def _create_order(self, items: list[dict[str, Any]], storeCode: str = "", beType: int = 1,
+                      gmServiceCode: str = "", **_: Any) -> dict[str, Any]:
+        price = self._calculate_price(items, beType=beType, storeCode=storeCode, gmServiceCode=gmServiceCode)
         for it in items:  # coupons are consumed by the order
             self._store_coupons.pop(str(it.get("couponId", "")), None)
         self._orders += 1
@@ -385,24 +389,21 @@ class DemoClient:
 
     def _query_promotions(self, storeCode: str, orderType: int = 2, beType: int = 6, beCode: str = "",
                           reservationDate: str = "") -> list:
+        """Shaped like the live server: one 满折 tier per rule, split by 助餐服务 (gmServiceCode)."""
         if int(beType) != 6:
             raise McdError("仅企业团餐场景可用")
         t = self.today
-        when = {"startTime": f"{t:%Y-%m-01} 00:00:00", "endTime": f"{t + timedelta(days=30):%Y-%m-%d} 23:59:59"}
-        return [
-            dict(when, promotionId="PROMO-REDUCE", promotionType="31", ruleCategory=40, beTypes=["6"], gmServiceCode="",
-                 products=[{"productCode": "", "type": "3"}],
-                 ruleDetail={"orderReduce": {"reduceInfo": [{"startDiscountPoint": "100", "reduceAmount": "10"},
-                                                            {"startDiscountPoint": "200", "reduceAmount": "30"}]}}),
-            dict(when, promotionId="PROMO-DISCOUNT", promotionType="33", ruleCategory=30, beTypes=["6"], gmServiceCode="",
-                 products=[{"productCode": "920200", "type": "2"}, {"productCode": "920201", "type": "2"}],
-                 ruleDetail={"orderDiscount": {"startDiscountPoint": "300", "discount": "15"}}),
-        ]
+        rules = [("GMS001", "300", "22"), ("GMS001", "500", "26"), ("GMS002", "300", "12"), ("GMS002", "500", "16")]
+        return [{"promotionId": f"DEMO{k:04d}", "promotionType": "33", "ruleCategory": 30, "beTypes": ["6"],
+                 "startTime": f"{t:%Y-%m-01} 00:00:00", "endTime": f"{t + timedelta(days=60):%Y-%m-%d} 23:59:59",
+                 "gmServiceCode": svc, "products": [{"type": "2", "productCode": "9900016058"}],
+                 "ruleDetail": {"orderDiscount": {"discount": off, "startDiscountPoint": th}}}
+                for k, (svc, th, off) in enumerate(rules, 1)]
 
-    def _group_saving(self, rows: list[dict[str, Any]], storeCode: str) -> int:
-        from .promos import parse_promotions, promo_status
+    def _group_saving(self, rows: list[dict[str, Any]], storeCode: str, service: str) -> int:
+        from .promos import for_service, parse_promotions, promo_status
         lines = [(r["productCode"], r["subtotal"]) for r in rows if r["productCode"] in _MENU]
-        st = promo_status(parse_promotions(self._query_promotions(storeCode)), lines)
+        st = promo_status(for_service(parse_promotions(self._query_promotions(storeCode)), service), lines)
         return st["applied"]["saving_fen"] if st["applied"] else 0
 
     # ---- order tracking ------------------------------------------------
@@ -453,7 +454,7 @@ class DemoClient:
             raise McdError("该场次已约满")
         self._orders += 1
         oid = f"PTY{self._orders:010d}"
-        price = (partyTimeInfo or {}).get("price") or 5800
+        price = ((partyTimeInfo or {}).get("price") or 5800) * int(count)    # per person
         return {"orderId": oid, "orderStatus": 10, "status": 1, "amount": f"{price / 100:g}", "point": 0,
                 "payH5Url": f"https://m.mcd.cn/mcp/scanToPay?orderId={oid}",
                 "goods": [{"spuId": spuId, "skuId": skuId, "count": count, "price": f"{price / 100:g}",

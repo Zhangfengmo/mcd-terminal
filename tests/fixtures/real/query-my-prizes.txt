@@ -1,0 +1,34 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: 我的抽奖奖品列表 (Type: object)
+  - **data.status**: 业务状态 (Type: object)
+    - **data.status.code**: 状态码，如 SUCCESS/NOT_LOGIN (Type: string)
+    - **data.status.message**: 状态文案 (Type: string)
+  - **data.prizes**: 奖品列表，按中奖时间(recordTime)倒序 (Type: array)
+    - **data.prizes[].id**: 奖品记录ID (Type: string)
+    - **data.prizes[].name**: 奖品名称 (Type: string)
+    - **data.prizes[].imageUrl**: 奖品图片 (Type: string)
+    - **data.prizes[].prizeType**: 奖品类型 (Type: integer)
+    - **data.prizes[].recordTime**: 中奖时间 (Type: string)
+    - **data.prizes[].status**: 状态数值 (Type: integer)
+    - **data.prizes[].statusText**: 状态文案 (Type: string)
+    - **data.prizes[].timeRemindText**: 可用时间提醒文案 (Type: string)
+  - **data.pageNum**: 当前页码（归一化后） (Type: integer)
+  - **data.pageSize**: 每页条数（归一化后，最大50） (Type: integer)
+  - **data.hasMore**: 是否还有下一页 (Type: boolean)
+  - **data.nextCursor**: 下一页游标，无更多为空 (Type: integer)
+  - **data.truncated**: 结果被截断时为 true (Type: boolean)
+- **message**: 响应消息 (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": {"status": {"code": "SUCCESS", "message": "成功"}, "prizes": [{"id": "PRIZE0", "name": "大暑", "prizeType": 25, "prizeTypeText": "门票", "recordTime": "2026-07-30 16:05:04", "status": 0, "statusText": "可用"}, {"id": "PRIZE1", "name": "麦麦薯条脑袋", "prizeType": 25, "prizeTypeText": "门票", "recordTime": "2026-07-22 17:55:44", "status": 0, "statusText": "可用"}, {"id": "PRIZE2", "name": "小暑", "prizeType": 25, "prizeTypeText": "门票", "recordTime": "2026-07-22 17:55:44", "status": 0, "statusText": "可用"}], "pageNum": 1, "pageSize": 20, "hasMore": false, "truncated": false}}

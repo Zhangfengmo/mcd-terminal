@@ -30,7 +30,7 @@
 | 地址 | `delivery-query-addresses` / `delivery-create-address` | 外送和团餐选地址、`mcd address`、`mcd config address`；添加前先查一遍，相同地址不重复创建 |
 | 外送门店 | `delivery-query-stores` | 麦乐送、企业团餐 |
 | 团餐 | `query-meal-assistance` | 团餐助餐服务及满额折扣 |
-| 团餐满减满折 | `query-promotions` | `mcd order --group`：这单能享受哪一档满减/满折、再加多少钱到下一档、加哪样刚好够（只算现金部分，以核价为准） |
+| 团餐满减满折 | `query-promotions` | `mcd order --group`：按所选助餐服务（`gmServiceCode`，如保鲜速达、专人分餐）筛出规则，算这单能享受哪一档满减/满折、再加多少钱到下一档、加哪样刚好够（只算现金部分，以核价为准） |
 | 菜单 | `query-meals` / `query-meal-detail` | 点餐时匹配菜品并读取活动标签（如“第二份半价”）、`mcd menu`、套餐组成 |
 | 营养 | `list-nutrition-foods` | 点餐时估算整餐热量、菜单热量列、`mcd nutrition` |
 | 门店可用券 | `query-store-coupons` | 点餐时找可叠加的已有券 |
@@ -41,7 +41,7 @@
 | 问卷奖券 | `query-survey-coupon` | `mcd survey`：吃完填的满意度问卷送了什么券、有效期、是否已核销、适用到店还是外送；网页版订单页的已完成订单下方 |
 | 取消订单 | `cancel-order` | `mcd cancel`：确认后取消，可选取消原因 |
 | 派对场次 | `query-party-city` / `query-party-store` / `query-party-store-date` / `query-party-store-session` | `mcd party`、网页版活动地图里的派对卡片：哪个城市、哪家店、哪天几点还能约 |
-| 派对预约 | `party-order-create` | `mcd party <名字> --book`：按 城市 → 门店 → 日期 → 场次 → 包场/拼团 → 人数 一步步选（活动只支持一种时自动带上），确认后下单、扫码付款；网页版场次旁的“预约” |
+| 派对预约 | `party-order-create` | `mcd party <名字> --book`：按 城市 → 门店 → 日期 → 场次 → 包场/拼团 → 人数 一步步选（商品详情 `partyType` 为 1/2 时只能包场/拼团，-1 时让用户选；人数下限取场次 `partyMin` 和 `spuLimit.baseCount`；场次 `price` 是每人价格，单位分），确认后下单、扫码付款；网页版场次旁的“预约” |
 | 积分抽奖 | `query-lottery-info` / `query-my-prizes` | `mcd prizes`、网页版活动页的奖池和“我的奖品” |
 | 抽奖 | `draw-lottery` | `mcd draw`：先展示 `drawDecision.nextConsumption`（本次扣多少次数或积分，有 `fallbackConsumption` 时一并说明），`resourceEligible` 为 false 时不调用；用户确认后只抽一次，不试抽、不连抽；失败时原样展示服务端的提示。网页版奖池弹窗的“抽一次” |
 

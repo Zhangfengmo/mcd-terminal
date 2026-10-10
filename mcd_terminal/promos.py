@@ -37,6 +37,7 @@ class Promo:
     codes: set[str] = field(default_factory=set)
     start: str = ""
     end: str = ""
+    service: str = ""                      # gmServiceCode：团餐的满折按助餐服务分开（保鲜速达 / 专人分餐…）
 
     def covers(self, code: str) -> bool:
         if self.scope == "1":
@@ -47,7 +48,7 @@ class Promo:
 
     @property
     def text(self) -> str:
-        return " / ".join(t.text for t in self.tiers) + ("" if self.scope == "3" else "（部分餐品）")
+        return " / ".join(t.text for t in self.tiers) + {"1": "（指定餐品）", "2": "（个别餐品除外）"}.get(self.scope, "")
 
 
 def _yuan(fen: int) -> str:
@@ -83,7 +84,24 @@ def parse_promotions(data: Any) -> list[Promo]:
         scope = str(prods[0].get("type", "3")) if prods else "3"
         codes = {str(p.get("productCode")) for p in prods if p.get("productCode")}
         out.append(Promo(str(r.get("promotionId", "")), sorted(tiers, key=lambda t: t.threshold_fen), scope, codes,
-                         str(r.get("startTime") or ""), str(r.get("endTime") or "")))
+                         str(r.get("startTime") or ""), str(r.get("endTime") or ""), str(r.get("gmServiceCode") or "")))
+    return out
+
+
+def for_service(promos: list[Promo], service: str | None) -> list[Promo]:
+    """只留这次选的助餐服务的规则（没标服务的规则对所有服务都有效）。"""
+    return [p for p in promos if not p.service or not service or p.service == service]
+
+
+def summary(promos: list[Promo]) -> list[str]:
+    """同一服务、同一范围的单档规则合成一行：满¥300享7.8折 / 满¥500享7.4折 / …"""
+    groups: dict[tuple, list[Tier]] = {}
+    for p in promos:
+        groups.setdefault((p.service, p.scope, frozenset(p.codes)), []).extend(p.tiers)
+    out = []
+    for (_, scope, _), tiers in groups.items():
+        tiers = sorted(tiers, key=lambda t: t.threshold_fen)
+        out.append(" / ".join(t.text for t in tiers) + {"1": "（指定餐品）", "2": "（个别餐品除外）"}.get(scope, ""))
     return out
 
 

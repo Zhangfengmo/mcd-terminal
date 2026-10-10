@@ -1,0 +1,28 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: No comments found. (Type: array)
+  - **data[].id**: No comments found. (Type: number)
+  - **data[].timeStart**: 场次开始时间 (Type: string)
+  - **data[].timeEnd**: 场次结束时间 (Type: string)
+  - **data[].partyMin**: 最小成团人数 (Type: integer)
+  - **data[].partyMax**: 最大成团人数 (Type: integer)
+  - **data[].price**: 价格 (Type: integer)
+  - **data[].cookEmpNo**: 大厨编码 (Type: string)
+  - **data[].opEmpNo**: 当前场次操作人编号 (Type: string)
+  - **data[].rgmEmpNo**: 当前场次店长编号 (Type: string)
+  - **data[].leftNum**: 剩余场次 (Type: integer)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": [{"id": 36813106, "timeStart": "10:30", "timeEnd": "12:00", "partyMin": 5, "partyMax": 12, "price": 4500, "cookEmpNo": "", "opEmpNo": "", "rgmEmpNo": "", "leftNum": 12}, {"id": 36818058, "timeStart": "14:00", "timeEnd": "15:30", "partyMin": 5, "partyMax": 12, "price": 4500, "cookEmpNo": "", "opEmpNo": "", "rgmEmpNo": "", "leftNum": 12}]}

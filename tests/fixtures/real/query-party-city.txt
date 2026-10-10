@@ -1,0 +1,24 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: No comments found. (Type: array)
+  - **data[].code**: 城市编码 (Type: integer)
+  - **data[].latitude**: 纬度 (Type: number)
+  - **data[].longitude**: 经度 (Type: number)
+  - **data[].name**: 城市名称 (Type: string)
+  - **data[].initial**: 首字母 (Type: string)
+  - **data[].sortNo**: 排序号 (Type: integer)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": [{"code": 610900, "latitude": 32.685435, "longitude": 109.029017, "name": "安康市", "initial": "A", "sortNo": 7}, {"code": 110100, "latitude": 39.904179, "longitude": 116.407387, "name": "北京市", "initial": "B", "sortNo": 27}, {"code": 310100, "latitude": 31.230525, "longitude": 121.473667, "name": "上海市", "initial": "S", "sortNo": 258}]}

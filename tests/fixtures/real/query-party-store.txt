@@ -1,0 +1,30 @@
+# API Response Information
+
+Below is the response from an API call. To help you understand the data, I've provided:
+
+1. A detailed description of all fields in the response structure
+2. The complete API response
+
+## Response Structure
+
+> Content-Type: application/json
+
+- **data**: No comments found. (Type: array)
+  - **data[].address**: 餐厅地址 (Type: string)
+  - **data[].cityCode**: 城市编码 (Type: string)
+  - **data[].cityName**: 城市名称 (Type: string)
+  - **data[].latitude**: 纬度 (Type: number)
+  - **data[].longitude**: 经度 (Type: number)
+  - **data[].name**: 餐厅名称 (Type: string)
+  - **data[].shortName**: 餐厅短名称 (Type: string)
+  - **data[].code**: 餐厅编码 (Type: string)
+  - **data[].distance**: 距离 (Type: integer)
+  - **data[].distanceText**: 距离文本 (Type: string)
+  - **data[].businessStatus**: 营业状态 (Type: integer)
+  - **data[].onlineBusinessStatus**: No comments found. (Type: boolean)
+- **message**: No comments found. (Type: string)
+- **traceId**: No comments found. (Type: string)
+
+## Original Response
+
+{"success": true, "code": 200, "message": "请求成功", "datetime": "sanitized", "traceId": "sanitized", "data": [{"address": "南京东路街道西藏中路336号", "cityCode": "310100", "cityName": "上海市", "latitude": 31.233774, "longitude": 121.475816, "name": "麦当劳上海黄浦华旭国际大厦餐厅", "shortName": "上海黄浦华旭国际大厦餐厅", "code": "1450713", "distance": 415, "distanceText": "415m", "businessStatus": 1, "onlineBusinessStatus": true}, {"address": "福州路465号", "cityCode": "310100", "cityName": "上海市", "latitude": 31.233593, "longitude": 121.481475, "name": "麦当劳上海黄浦区福州路上海书城餐厅", "shortName": "上海黄浦区福州路上海书城餐厅", "code": "1450556", "distance": 816, "distanceText": "816m", "businessStatus": 1, "onlineBusinessStatus": true}, {"address": "湖滨路168号商场_B2-W08_", "cityCode": "310100", "cityName": "上海市", "latitude": 31.220618, "longitude": 121.477721, "name": "麦当劳上海黄浦区无限极荟餐厅", "shortName": "上海黄浦区无限极荟餐厅", "code": "1450699", "distance": 1166, "distanceText": "1.2km", "businessStatus": 1, "onlineBusinessStatus": true}]}

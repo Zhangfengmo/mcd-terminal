@@ -718,7 +718,7 @@ def _promo_tips(promos: list, plan: Any, menu: list) -> None:
     """团餐满减满折：这单享受哪一档、再加多少能到下一档。金额以核价为准。"""
     if not promos:
         return
-    from .promos import promo_status
+    from .promos import promo_status, summary as promo_summary
     lines = [(ch.unit.menu.code, ch.pay_fen) for ch in plan.choices if ch.kind not in ("coupon", "points")]
     st = promo_status(promos, lines)
     a, n = st["applied"], st["next"]
@@ -727,7 +727,7 @@ def _promo_tips(promos: list, plan: Any, menu: list) -> None:
         fits = sorted((m for m in menu if m.price_fen and m.price_fen >= n["gap_fen"]), key=lambda m: m.price_fen)
         fill = fits[0] if fits else None
     _out(group_promotions={
-        "rules": [p.text for p in promos],
+        "rules": promo_summary(promos),
         "applied": {"rule": a["rule"], "saving_yuan": agent.yuan(a["saving_fen"])} if a else None,
         "next": {"rule": n["rule"], "add_yuan": agent.yuan(n["gap_fen"]), "extra_saving_yuan": agent.yuan(n["extra_saving_fen"]),
                  "fill_with": fill.name if fill else None} if n else None,
@@ -1271,6 +1271,8 @@ SATISFACTION = {5: "非常满意", 4: "满意", 3: "一般", 2: "不满意", 1: 
 def _survey(d: Any, oid: str) -> dict[str, Any] | None:
     if not isinstance(d, dict):
         return None
+    if d.get("status") not in (None, 1, "1") and not d.get("coupon_title"):
+        return None   # 放弃答题 / 被配额过滤：没有完成的问卷
     sat = d.get("overall_satisfaction")
     way = {"1": "到店/自取", "2": "外送"}.get(str(d.get("coupon_order_food_types") or ""), None)
     title = d.get("coupon_title") or None
@@ -1284,7 +1286,9 @@ def _survey(d: Any, oid: str) -> dict[str, Any] | None:
 
 
 def _survey_line(s: dict[str, Any] | None, oid: str) -> str:
-    if not s or not s["coupon"]:
+    if not s:
+        return f"订单 …{oid[-6:]}：没有完成的问卷"
+    if not s["coupon"]:
         return f"订单 …{oid[-6:]}：填过问卷，没有奖券"
     return f"订单 …{oid[-6:]}：{s['coupon']}" + (f"（{s['coupon_status']}）" if s["coupon_status"] else "")
 
@@ -1623,7 +1627,7 @@ def party(
                      "distance": st.get("distanceText") or st.get("distance")}
         _out(status="listed", event=ev.get("spuName"), spu_id=spu, city=ct.get("name"), store=store_out,
              other_stores=[x.get("name") for x in stores[:6] if x is not st], days=out_days,
-             note="想预约：加 --book（可配 --date --time --count），确认后下单、扫码付款")
+             note="price_yuan 是每人价格；想预约：加 --book（可配 --date --time --count），确认后下单、扫码付款")
         if not book:
             ui.say(Text.assemble((str(ev.get("spuName")), "bold"), (f"  ·  {ct.get('name')} {st.get('name')}", "")))
             ui.console.print()
@@ -1632,8 +1636,8 @@ def party(
                 for x in d["sessions"] or [{"start": "—", "end": "", "left": 0}]:
                     rows_.append([d["date"] or "", f"{x.get('start') or ''}–{x.get('end') or ''}",
                                   Text(f"余 {x.get('left')}", style=ui.GREEN if (x.get("left") or 0) > 0 else ui.DIM),
-                                  f"¥{x['price_yuan']:g}" if isinstance(x.get("price_yuan"), (int, float)) else ""])
-            ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("价格", "right")], rows_)
+                                  f"¥{x['price_yuan']:g}/人" if isinstance(x.get("price_yuan"), (int, float)) else ""])
+            ui.simple_table([("日期", "left"), ("场次", "left"), ("", "left"), ("每人", "right")], rows_)
             ui.console.print()
             ui.tip(Text.assemble(("想预约：", ""), ui.cmd(_again(add="--book") or f"mcd party {name} --book"),
                                  ("（会一步步选场次和人数，确认后才下单）", ui.DIM)))
@@ -1687,19 +1691,32 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
         ptype = j + 1
     elif kind and _party_type(kind) != fixed and fixed in (1, 2):
         raise McdError(f"这个活动只能{PARTY_TYPES[fixed]}")
-    lo, hi, left = x.get("partyMin"), x.get("partyMax"), x.get("leftNum")
-    n = count or (lo if ptype == 1 and lo else 1)
-    if n < 1 or (hi and n > hi) or (ptype == 2 and left and n > left):
-        raise McdError(f"人数不对：这一场 {lo or 1}–{hi or '不限'} 人" + (f"，还剩 {left} 个位置" if ptype == 2 and left else ""))
-    price = _fen_of(x.get("price"))
+    left = x.get("leftNum")
+    limit = detail.get("spuLimit") or {}
+    base = int(limit.get("baseCount") or 1)            # 至少买几份（尊享版生日派对是 5）
+    single = int(limit.get("limitSingle") or 0)         # 一单最多几份
+    lo = max(int(x.get("partyMin") or 1), base) if ptype == 1 else base
+    caps = [v for v in (x.get("partyMax"), single, left if ptype == 2 else None) if v]
+    hi = min(caps) if caps else None
+    n = count or lo
+    if n < lo or (hi and n > hi):
+        raise McdError(f"人数不对：这一场{PARTY_TYPES[ptype]}要 {lo}" + (f"–{hi}" if hi else "") + " 人"
+                       + (f"（还剩 {left} 个位置）" if ptype == 2 and left else ""))
+    price = _fen_of(x.get("price"))                     # 每人价格，单位分（和商品 skuList.price 一致）
+    total = price * n if price is not None else None
     summary_ = {"event": ev.get("spuName"), "store": st.get("name"), "date": d, "time": f"{x.get('timeStart')}–{x.get('timeEnd')}",
-                "type": PARTY_TYPES[ptype], "count": n, "price_yuan": agent.yuan(price) if price is not None else None}
+                "type": PARTY_TYPES[ptype], "count": n, "min": lo, "max": hi,
+                "price_per_person_yuan": agent.yuan(price) if price is not None else None,
+                "total_yuan": agent.yuan(total) if total is not None else None,
+                "people": detail.get("partyPeople") or None, "age": detail.get("partyAge") or None}
     _out(status="planned", booking=summary_)
     details = [Text.assemble((str(ev.get("spuName")), "bold")),
                f"{ct.get('name')} {st.get('name')}",
                Text.assemble((f"{d}  {x.get('timeStart')}–{x.get('timeEnd')}", f"bold {ui.ACCENT}")),
-               f"{PARTY_TYPES[ptype]} · {n} 人",
-               Text("场次价格 " + (ui.yuan(price) if price is not None else "以下单页为准") + "，下一步扫码付款；退改以活动规则为准", style=ui.DIM)]
+               f"{PARTY_TYPES[ptype]} · {n} 人" + (f"（适合 {detail['partyAge']} 岁）" if detail.get("partyAge") else ""),
+               Text.assemble(("约 ", ui.DIM), (ui.yuan(total), f"bold {ui.GREEN}"), (f"（{ui.yuan(price)}/人 × {n}，以下单页为准）", ui.DIM))
+               if total is not None else Text("价格以下单页为准", style=ui.DIM),
+               Text("下一步扫码付款；退改以活动规则为准", style=ui.DIM)]
     if not _gate(yes, lambda: ui.ask("预约派对", details, "就约这一场吗？", ("好，预约", "先不约"))):
         return
     args = {"spuId": spu, "skuId": sku.get("skuId"), "partyType": ptype, "code": str(ct.get("code")),
@@ -1709,7 +1726,7 @@ def _book_party(ev: dict[str, Any], spu: int, ct: dict[str, Any], st: dict[str, 
     r = ui.call(c, "party-order-create", args,
                 summary=lambda r: f"订单 {(r or {}).get('orderId', '')} · 待支付") or {}
     url = r.get("payH5Url") or ""
-    amount = _fen_of(r.get("amount")) if r.get("amount") not in (None, "") else price
+    amount = _fen_of(r.get("amount")) if r.get("amount") not in (None, "") else total
     _out(status="booked", booking=summary_, order={"order_id": r.get("orderId"), "pay_url": url or None,
                                                    "pay_yuan": agent.yuan(amount) if amount is not None else None,
                                                    "next": "把 pay_url 发给用户，由用户自己打开付款"})
