@@ -1262,7 +1262,73 @@ def orders(size: int = typer.Option(10, help="显示最近多少笔。")) -> Non
         ui.console.print()
         ui.tip(Text.assemble(("看某一单的进度：", ""), ui.cmd("mcd track <订单号>")))
         ui.tip(Text.assemble(("吃完填过满意度问卷？看看送了什么券：", ""), ui.cmd("mcd survey")))
+        ui.tip(Text.assemble(("今天、本周、本月吃了多少热量：", ""), ui.cmd("mcd stats")))
     _run("orders", go)
+
+
+@app.command()
+def stats(days: int = typer.Option(30, "--days", help="每日热量图看最近几天。")) -> None:
+    """吃了多少：今天、本周、本月从麦当劳点的餐，热量、蛋白质、脂肪、碳水、钠和花费。"""
+    from . import intake
+    from .prefs import home
+
+    def go() -> None:
+        now = _now()
+        rows = _rows(ui.call(state.client, "order-list", summary=lambda d: f"最近 {len(_rows(d))} 笔订单"))
+        table = _nutrition()
+        fresh = intake.meals_from_orders(rows, table)
+        path = home() / "meals.json"
+        ledger = intake.merge({} if state.demo else intake.load_ledger(path), fresh)
+        if not state.demo:
+            intake.save_ledger(path, ledger)
+        meals = sorted(ledger.values(), key=lambda m: m.time)
+        ps = intake.periods(now)
+        sums = {k: intake.summarize(meals, a, b, n) for k, (a, b, n) in ps.items()}
+        sums["all"] = intake.summarize(meals, meals[0].time if meals else now, now + timedelta(days=1),
+                                       ((now.date() - meals[0].time.date()).days + 1) if meals else 1)
+        series = intake.daily(meals, now, max(days, 7))
+        _out(periods=sums, daily=series, reference={"kcal_per_day": intake.KCAL_PER_DAY, "sodium_mg_per_day": intake.SODIUM_PER_DAY,
+                                                    "source": "中国居民膳食指南（成年人参考，仅作对照）"},
+             recorded_orders=len(meals), since=meals[0].time.strftime("%Y-%m-%d") if meals else None,
+             note="只统计麦当劳订单（取消/退款/待支付不算）；套餐按组成拆开；not_counted 是营养表里查不到的餐品，没算进热量")
+        if not meals:
+            ui.say("还没有点餐记录。点过的单会自动统计在这里：今天、本周、本月吃了多少。")
+            return
+        cols = [("", "left"), ("今天", "right"), ("本周", "right"), ("本月", "right"), ("全部记录", "right")]
+        keys = ["today", "week", "month", "all"]
+        fmt = lambda v, unit="": f"{v:,.0f}{unit}" if v else ui.faint("—")  # noqa: E731
+        ui.say(Text.assemble(("从麦当劳吃了多少", "bold"), (f"  ·  {now:%m-%d} 周{'一二三四五六日'[now.weekday()]}", ui.DIM)))
+        ui.console.print()
+        ui.simple_table(cols, [
+            ["订单", *[fmt(sums[k]["orders"], " 单") for k in keys]],
+            ["热量", *[Text(f"{sums[k]['kcal']:,} 千卡", style=f"bold {ui.ACCENT}") if sums[k]["kcal"] else ui.faint("—") for k in keys]],
+            ["日均", *[fmt(sums[k]["kcal_per_day"], " 千卡") if k != "today" else "" for k in keys]],
+            ["蛋白质", *[fmt(sums[k]["protein_g"], " 克") for k in keys]],
+            ["脂肪", *[fmt(sums[k]["fat_g"], " 克") for k in keys]],
+            ["碳水", *[fmt(sums[k]["carbs_g"], " 克") for k in keys]],
+            ["钠", *[fmt(sums[k]["sodium_mg"], " 毫克") for k in keys]],
+            ["花费", *[ui.dim(ui.yuan(sums[k]["spent_fen"])) if sums[k]["spent_fen"] else ui.faint("—") for k in keys]],
+        ])
+        ui.console.print()
+        vals = [d["kcal"] for d in series]
+        line = intake.sparkline(vals)
+        if any(vals):
+            ui.console.print(ui._indent(Text.assemble((f"最近 {len(series)} 天  ", ui.DIM), (line, ui.ACCENT),
+                                                      (f"  最多一天 {max(vals):,} 千卡", ui.DIM))))
+        t = sums["today"]
+        if t["kcal"]:
+            ui.tip(f"今天 {t['orders']} 单约 {t['kcal']:,} 千卡，相当于一天参考量（{intake.KCAL_PER_DAY} 千卡）的 "
+                   f"{t['share_of_daily_kcal'] * 100:.0f}%；钠 {t['sodium_mg']:,} 毫克（参考上限 {intake.SODIUM_PER_DAY}）")
+        m = sums["month"] if sums["month"]["orders"] else sums["all"]
+        if m["top"]:
+            label = "本月" if sums["month"]["orders"] else "记录里"
+            ui.tip(f"{label}热量来源最多：" + "、".join(f"{x['name']} x{x['count']}（{x['kcal']:,} 千卡）" for x in m["top"][:3]))
+        missing = {x["name"] for k in keys for x in sums[k]["not_counted"]}
+        if missing:
+            ui.tip(Text(f"有 {len(missing)} 样在营养表里查不到，没算进去：" + "、".join(sorted(missing)[:6]), style=ui.DIM))
+        ui.tip(Text(("演示数据" if state.demo else f"记录从 {meals[0].time:%Y-%m-%d} 开始，保存在本机 {path}")
+                    + "；营养数据来自麦当劳官方营养表，参考量按成年人，仅作对照", style=ui.FAINT))
+    _run("stats", go)
 
 
 SATISFACTION = {5: "非常满意", 4: "满意", 3: "一般", 2: "不满意", 1: "很不满意"}

@@ -23,7 +23,7 @@ from pathlib import Path
 # Every command the CLI registers; tests/test_e2e.py checks this list is complete.
 COMMANDS = [
     "today", "portfolio", "market", "spend", "buy", "claim", "order", "menu", "nutrition", "stores",
-    "address", "address add", "prizes", "draw", "events", "party", "survey", "remind", "web", "config", "config mode", "config store", "config address", "config city",
+    "address", "address add", "prizes", "draw", "events", "party", "survey", "stats", "remind", "web", "config", "config mode", "config store", "config address", "config city",
     "config points", "config take-way", "config reset", "track", "history", "orders", "cancel", "calendar", "doctor", "login",
     "logout", "skill", "skill show", "skill install",
 ]
@@ -95,6 +95,9 @@ def scenarios(skill_dir: str) -> list[tuple[str, list[str], str | None, dict]]:
     add("draw -y draws once", ["--demo", "--json", "draw", "-y"], json=True, status="drawn", contains=["\"won\""])
     add("draw interactive: decline does not draw", ["--demo", "draw"], NO, lacks=["draw-lottery"])
     add("draw interactive: confirm", ["--demo", "draw"], YES, contains=["draw-lottery", "抽中了"])
+    add("stats", ["--demo", "stats"], contains=["吃了多少", "千卡", "本周", "热量来源最多"])
+    add("stats --json", ["--demo", "--json", "stats"], json=True, contains=['"periods"', '"energy_split"', '"daily"'])
+    add("stats --days 7", ["--demo", "stats", "--days", "7"], contains=["最近 7 天"])
     add("survey recent orders", ["--demo", "survey"], contains=["问卷", "可核销"])
     add("survey --json", ["--demo", "--json", "survey"], json=True, contains=["满意度问卷专享"])
     add("survey: order without a survey", ["--demo", "--json", "survey", "1030938700000000000000000001"], json=True,

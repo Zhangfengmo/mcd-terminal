@@ -51,6 +51,7 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “帮我领券” | `mcd --json claim` → 同意后 `confirm_with` |
 | “我的餐好了吗” | `mcd --json track`（默认最近一单）或 `track <订单号>` |
 | “我最近点了什么” | `mcd --json orders` |
+| “我这周吃了多少热量”“这个月在麦当劳摄入了多少” | `mcd --json stats`：`periods.today/week/month/all` 里有热量、蛋白质、脂肪、碳水、钠、花费和日均；`not_counted` 是查不到营养数据的餐品。只陈述数字和参考量，不评判、不给节食建议 |
 | “刚才那单不要了” | `mcd --json cancel [订单号]` → 确认是哪一单 → 同意后 `confirm_with` |
 | “我的默认门店/地址是什么” | `mcd --json config` |
 | “以后都送到家” / “默认去人民广场那家” | `mcd --json config mode delivery` / `mcd --json config store --city 上海 --near 人民广场` |

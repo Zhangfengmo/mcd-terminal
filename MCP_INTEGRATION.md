@@ -32,7 +32,7 @@
 | 团餐 | `query-meal-assistance` | 团餐助餐服务及满额折扣 |
 | 团餐满减满折 | `query-promotions` | `mcd order --group`：按所选助餐服务（`gmServiceCode`，如保鲜速达、专人分餐）筛出规则，算这单能享受哪一档满减/满折、再加多少钱到下一档、加哪样刚好够（只算现金部分，以核价为准） |
 | 菜单 | `query-meals` / `query-meal-detail` | 点餐时匹配菜品并读取活动标签（如“第二份半价”）、`mcd menu`、套餐组成 |
-| 营养 | `list-nutrition-foods` | 点餐时估算整餐热量、菜单热量列、`mcd nutrition` |
+| 营养 | `list-nutrition-foods` | 点餐时估算整餐热量、菜单热量列、`mcd nutrition`；`mcd stats` 把点餐记录（`order-list`，套餐按 `comboItemList` 拆开）对上营养表，统计今天 / 本周 / 本月的摄入 |
 | 门店可用券 | `query-store-coupons` | 点餐时找可叠加的已有券 |
 | 算价 | `calculate-price` | 试算每张券的用券价；确认前实时核价（含配送费、门店活动、团餐折扣）；下单前的最终价格 |
 | 下单 | `create-order` | 创建订单，返回支付链接 |

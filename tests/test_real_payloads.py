@@ -345,3 +345,19 @@ def test_real_party_sessions_rank_by_risk(replay_more):
     assert few["rules"]["advance_days"] == 3 and top["deadline"].endswith("23:59")
     six = _body(replay_more, "party", "亲子读书会", "-c", "上海", "--people", "6")
     assert six["recommended"][0]["safe"] is True and six["recommended"][0]["type"] == "包场"
+
+
+def test_real_order_history_intake(replay, tmp_path):
+    """Real order-list + real nutrition table: combos are split into parts; unknown parts are listed, not guessed."""
+    from mcd_terminal import intake
+    table = __import__("mcd_terminal.content", fromlist=["parse_nutrition"]).parse_nutrition(load("list-nutrition-foods"))
+    meals = intake.meals_from_orders(load("order-list")["list"], table)
+    assert meals and all(m.items for m in meals)
+    names = {i.name for m in meals for i in m.items}
+    assert "人气超值四件套随心选" not in names            # the combo itself is replaced by its parts
+    body = _body(replay, "stats")
+    assert body["recorded_orders"] == len(meals)
+    allp = body["periods"]["all"]
+    assert allp["kcal"] > 0 and allp["orders"] == len(meals)
+    assert all(x["name"] for x in allp["not_counted"])
+    assert (tmp_path / "meals.json").exists()         # kept locally so week/month build up over time

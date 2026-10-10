@@ -201,6 +201,10 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .pin.past image, .pin.past .pin-emoji { opacity: .5; }
 .pin .shadow { fill: #221c35; }
 .pin .pin-emoji { font-size: 24px; }
+.pin.past .pin-art { opacity: .5; }
+.ill { display: inline-grid; place-items: center; width: 62%; aspect-ratio: 1; line-height: 0; }
+.ill svg { width: 100%; height: 100%; overflow: visible; }
+.camp-art-empty svg { width: 46%; height: auto; }
 .pin .badge-bg { fill: #ff6fae; stroke: #221c35; stroke-width: 2; }
 .pin .badge { font-size: 13px; }
 .pin:hover .halo, .pin:focus .halo, .pin.hot .halo { stroke-width: 8; }
@@ -229,6 +233,11 @@ h3 { font-size: 17px; margin: 0; font-weight: 800; }
 .guide-item .thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #fff; border: 3px solid var(--line); }
 .guide-item .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .guide-item .thumb .emoji { font-size: 22px; }
+.guide-item .thumb .ill { width: 70%; }
+.tile .plate .ill { width: 58%; }
+.event .art .ill { width: 38%; }
+.poster .art .ill { width: 44%; }
+.goods .pic .ill { width: 56%; }
 .guide-item.today .thumb { border-color: var(--ketchup); }
 .guide-item.soon .thumb { border-color: var(--grape); }
 .guide-item b { font-size: 14px; font-weight: 700; display: block; line-height: 1.35; }
@@ -468,6 +477,32 @@ dialog::backdrop { background: rgba(34, 28, 53, .5); }
 .invite textarea { width: 100%; font: inherit; font-size: 13px; border: 2px solid var(--ink); border-radius: var(--r-m); padding: 8px; resize: vertical; }
 .invite .btn { justify-self: start; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
+.intake { background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r-l); box-shadow: var(--shadow); padding: 16px 18px; margin: 0 0 20px; }
+.intake-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.intake-head h3 { margin: 0; }
+.intake-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; margin-top: 12px; align-items: start; }
+.intake-grid > * { min-width: 0; }
+@media (max-width: 980px) { .intake-grid { grid-template-columns: 1fr; } }
+.hero-kcal .big { font-size: 44px; font-weight: 900; line-height: 1; }
+.hero-kcal .big small { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.hero-kcal p { margin: 6px 0 10px; }
+.split { display: flex; gap: 2px; height: 12px; border-radius: 999px; overflow: hidden; background: var(--surface); }
+.split-legend { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; font-size: 13px; }
+.split-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.kcal-chart { margin: 0; position: relative; }
+.kcal-chart figcaption { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.kcal-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.kcal-chart .bar rect:first-child { fill: var(--grape); }
+.kcal-chart .bar:hover rect:first-child { fill: #5b3fe0; }
+.kcal-chart .hit { fill: transparent; }
+.kcal-chart .refline { stroke: var(--ink-3); stroke-width: 1.5; stroke-dasharray: 5 5; }
+.kcal-chart .base { stroke: var(--line); stroke-width: 1.5; }
+.kcal-chart text { font-size: 11px; fill: var(--ink-3); }
+.kcal-chart .reflabel { fill: var(--ink-2); }
+.kcal-chart .tip { position: absolute; transform: translate(-50%, -100%); background: var(--ink); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 8px; white-space: nowrap; pointer-events: none; }
+.top-items { display: grid; gap: 6px; font-size: 13px; }
+.top-items .ti { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.top-items .ill { width: 30px; }
 .warn { color: var(--ketchup); font-size: 14px; font-weight: 600; }
 .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 18px; border-radius: 99px; z-index: 50; font-size: 14px; font-weight: 600; max-width: calc(100vw - 32px); }
 footer { text-align: center; color: var(--ink-3); font-size: 13px; padding: 0 var(--gutter) 40px; }
@@ -579,6 +614,66 @@ async function busy(btn, fn) {
 }
 
 /* food emoji when a picture is missing (demo data, or an image that won't load) */
+/* ---------------------------------------------------------------- art
+   Original sticker-style vector icons (64×64, ink outline + page palette), used wherever a real
+   picture is missing: menu, coupons, mall, map pins, party cards. Generic food — no brand marks. */
+const INK = "#221c35";
+const S = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
+const ART = {
+  burger: `<path d="M10 30c0-11 10-18 22-18s22 7 22 18z" fill="#f2a65a" ${S}/><circle cx="24" cy="21" r="1.6" fill="#fff7e6"/><circle cx="33" cy="17" r="1.6" fill="#fff7e6"/><circle cx="41" cy="22" r="1.6" fill="#fff7e6"/>
+    <path d="M9 33q4-4 8 0t8 0 8 0 8 0 8 0 8 0" fill="none" stroke="#19a974" stroke-width="4" stroke-linecap="round"/>
+    <rect x="9" y="35" width="46" height="8" rx="4" fill="#7a3f22" ${S}/><path d="M11 46h42v3a7 7 0 0 1-7 7H18a7 7 0 0 1-7-7z" fill="#f2a65a" ${S}/>`,
+  fries: `<path d="M22 22l-3-14M28 20l-1-15M34 20l1-14M40 22l3-13M46 24l4-11" stroke="#ffc93c" stroke-width="6" stroke-linecap="round"/>
+    <path d="M22 22l-3-14M28 20l-1-15M34 20l1-14M40 22l3-13M46 24l4-11" fill="none" stroke="${INK}" stroke-width="1.2" opacity=".35"/>
+    <path d="M14 24h36l-5 32H19z" fill="#ff5a36" ${S}/><path d="M24 36q8 6 16 0" fill="none" stroke="#ffc93c" stroke-width="3.5" stroke-linecap="round"/>`,
+  chicken: `<path d="M27 38l-9 9" stroke="${INK}" stroke-width="10" stroke-linecap="round"/><path d="M27 38l-9 9" stroke="#fff7e6" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="13" cy="47" r="4.5" fill="#fff7e6" ${S}/><circle cx="18" cy="53" r="4.5" fill="#fff7e6" ${S}/>
+    <ellipse cx="39" cy="25" rx="18" ry="14" transform="rotate(-40 39 25)" fill="#e0893a" ${S}/><path d="M33 16q8-5 14 2" fill="none" stroke="#f5b26b" stroke-width="3" stroke-linecap="round"/>`,
+  drink: `<path d="M38 4l-4 14" stroke="${INK}" stroke-width="3" stroke-linecap="round"/><path d="M38 4l6 2" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="16" y="15" width="32" height="7" rx="3" fill="#fff" ${S}/><path d="M18 22h28l-4 34H22z" fill="#ff5a36" ${S}/><path d="M20 34h24l-1 10H21z" fill="#fff7e6" opacity=".9"/>`,
+  coffee: `<path d="M24 6q-4 5 0 9t0 9M34 6q-4 5 0 9t0 9" fill="none" stroke="#8f8aa6" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M12 26h34v14a14 14 0 0 1-14 14h-6a14 14 0 0 1-14-14z" fill="#fff" ${S}/><path d="M46 30h4a6 6 0 0 1 0 12h-5" fill="none" ${S}/>
+    <path d="M15 31h28" stroke="#7a3f22" stroke-width="5" stroke-linecap="round"/><path d="M8 57h44" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`,
+  icecream: `<path d="M22 32h20L32 60z" fill="#f7c37b" ${S}/><path d="M25 38l12 8M28 46l6 4M39 38l-12 10" stroke="#c98b3c" stroke-width="2"/>
+    <path d="M20 32c-4 0-6-6-1-9 0-7 6-10 10-8 2-6 10-6 12 0 5-1 8 5 4 9 4 3 1 8-3 8z" fill="#fff7e6" ${S}/><path d="M30 10q2-4 5-4" fill="none" ${S}/>`,
+  sundae: `<path d="M14 30h36l-6 16H20z" fill="#fff" ${S}/><path d="M18 30c-2-6 4-10 8-8 2-6 12-6 14 0 4-2 9 2 7 8z" fill="#fff7e6" ${S}/>
+    <path d="M22 26q10 6 20 0" fill="none" stroke="#7a3f22" stroke-width="4" stroke-linecap="round"/><path d="M28 46h8v8M22 56h20" fill="none" ${S}/>`,
+  pie: `<rect x="10" y="20" width="44" height="26" rx="8" fill="#f2a65a" ${S}/><path d="M20 28l6 10M30 28l6 10M40 28l6 10" stroke="${INK}" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M14 46q18 6 36 0" fill="none" stroke="#c5602b" stroke-width="3"/>`,
+  breakfast: `<ellipse cx="32" cy="40" rx="24" ry="12" fill="#f2c27a" ${S}/><ellipse cx="32" cy="30" rx="22" ry="11" fill="#fff7e6" ${S}/>
+    <circle cx="32" cy="30" r="7" fill="#ffc93c" ${S}/><path d="M12 34q20 8 40 0" fill="none" stroke="#7a3f22" stroke-width="4"/>`,
+  wrap: `<path d="M14 50L42 10l10 8-28 40z" fill="#f2c27a" ${S}/><path d="M30 26l10 8M24 36l8 6" stroke="#19a974" stroke-width="4" stroke-linecap="round"/><path d="M14 50l10 8 6-12z" fill="#fff" ${S}/>`,
+  party: `<path d="M24 34c-8 0-12-7-12-14S17 6 24 6s12 7 12 14-4 14-12 14z" fill="#ff6fae" ${S}/><path d="M24 34l-3 4h6z" fill="#ff6fae" ${S}/><path d="M24 38q-4 8 2 18" fill="none" ${S}/>
+    <path d="M44 40c-6 0-9-5-9-10s4-10 9-10 9 5 9 10-3 10-9 10z" fill="#7a5cff" ${S}/><path d="M44 40q4 8-2 16" fill="none" ${S}/>
+    <rect x="6" y="46" width="5" height="5" rx="1" fill="#ffc93c" transform="rotate(20 8 48)"/><circle cx="54" cy="10" r="3" fill="#19a974"/><rect x="50" y="52" width="5" height="5" rx="1" fill="#ff5a36"/>`,
+  cake: `<path d="M32 6q4 5 0 8-4-3 0-8z" fill="#ff5a36" ${S}/><path d="M32 14v8" ${S}/><rect x="12" y="22" width="40" height="14" rx="5" fill="#ff6fae" ${S}/>
+    <rect x="8" y="36" width="48" height="18" rx="5" fill="#fff7e6" ${S}/><path d="M8 44q6 4 12 0t12 0 12 0 12 0" fill="none" stroke="#ff6fae" stroke-width="3"/>`,
+  gift: `<rect x="10" y="26" width="44" height="30" rx="4" fill="#7a5cff" ${S}/><rect x="6" y="18" width="52" height="10" rx="3" fill="#ff6fae" ${S}/>
+    <path d="M32 18v38" stroke="#ffc93c" stroke-width="6"/><path d="M32 18c-8-12-20-4-12 0zM32 18c8-12 20-4 12 0z" fill="#ffc93c" ${S}/>`,
+  book: `<path d="M32 16c-8-6-18-6-24-4v38c6-2 16-2 24 4 8-6 18-6 24-4V12c-6-2-16-2-24 4z" fill="#fff" ${S}/><path d="M32 16v38" ${S}/>
+    <path d="M14 22h12M14 30h12M38 22h12M38 30h12" stroke="#7a5cff" stroke-width="3" stroke-linecap="round"/>`,
+  tent: `<path d="M32 6l-26 34h52z" fill="#fff" ${S}/><path d="M32 6l-8 34h8zM32 6l12 34h-8z" fill="#ff5a36"/><path d="M32 6l-26 34h52z" fill="none" ${S}/>
+    <path d="M10 40h44v16H10z" fill="#ffc93c" ${S}/><path d="M26 56V44h12v12" fill="#221c35"/><path d="M32 6V0" ${S}/><path d="M32 1l8 3-8 3" fill="#19a974" ${S}/>`,
+  toy: `<circle cx="32" cy="36" r="18" fill="#f2a65a" ${S}/><circle cx="18" cy="18" r="7" fill="#f2a65a" ${S}/><circle cx="46" cy="18" r="7" fill="#f2a65a" ${S}/>
+    <circle cx="25" cy="33" r="2.5" fill="${INK}"/><circle cx="39" cy="33" r="2.5" fill="${INK}"/><ellipse cx="32" cy="42" rx="7" ry="5" fill="#fff7e6" ${S}/><circle cx="32" cy="40" r="2" fill="${INK}"/>`,
+  ticket: `<path d="M8 18h48v8a6 6 0 0 0 0 12v8H8v-8a6 6 0 0 0 0-12z" fill="#ffc93c" ${S}/><path d="M24 20v24" stroke="${INK}" stroke-width="2.5" stroke-dasharray="3 4"/>
+    <path d="M32 28h16M32 36h10" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`,
+  meal: `<ellipse cx="32" cy="46" rx="26" ry="8" fill="#fff" ${S}/><path d="M12 44a20 20 0 0 1 40 0z" fill="#dcdff0" ${S}/><circle cx="32" cy="22" r="3" fill="#fff" ${S}/>
+    <path d="M22 34q4-6 10-7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+};
+const ART_RULES = [["薯", "fries"], ["鸡翅", "chicken"], ["鸡块", "chicken"], ["麦乐鸡", "chicken"], ["脆汁鸡", "chicken"], ["鸡腿", "burger"], ["堡", "burger"], ["巨无霸", "burger"],
+  ["咖啡", "coffee"], ["拿铁", "coffee"], ["美式", "coffee"], ["奶铁", "coffee"], ["红茶", "coffee"], ["朱古力", "coffee"],
+  ["生日", "cake"], ["派对", "party"], ["亲子", "toy"], ["读书", "book"], ["体验营", "tent"], ["品鉴", "coffee"], ["抽奖", "gift"],
+  ["可乐", "drink"], ["雪碧", "drink"], ["饮", "drink"], ["汁", "drink"], ["豆浆", "drink"], ["牛奶", "drink"], ["冰淇淋", "icecream"], ["圆筒", "icecream"],
+  ["新地", "sundae"], ["麦旋风", "sundae"], ["派", "pie"], ["满分", "breakfast"], ["早餐", "breakfast"], ["油条", "breakfast"], ["粥", "breakfast"], ["卷", "wrap"],
+  ["周边", "gift"], ["玩具", "toy"], ["钥匙扣", "toy"], ["券", "ticket"], ["积分", "ticket"], ["卡", "ticket"]];
+function artKey(name) {
+  const n = name || "";
+  for (const [k, a] of ART_RULES) if (n.includes(k)) return a;
+  return "meal";
+}
+const artSvg = (key, size = "100%") => `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false">${ART[key] || ART.meal}</svg>`;
+
 function emojiFor(name) {
   const n = name || "";
   const table = [["薯", "🍟"], ["鸡翅", "🍗"], ["鸡", "🍗"], ["堡", "🍔"], ["巨无霸", "🍔"], ["咖啡", "☕"], ["拿铁", "☕"], ["美式", "☕"], ["奶铁", "☕"],
@@ -588,10 +683,11 @@ function emojiFor(name) {
   return "🍽️";
 }
 function pic(url, name, cls = "") {
-  const e = esc(emojiFor(name));
-  if (!url || url.includes("img.example")) return `<span class="emoji ${cls}" aria-hidden="true">${e}</span>`;
-  return `<img src="${esc(imgSrc(url))}" alt="${esc(name)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;emoji&quot; aria-hidden=&quot;true&quot;>${e}</span>'">`;
+  const key = artKey(name);
+  if (!url || url.includes("img.example")) return `<span class="ill ${cls}">${artSvg(key)}</span>`;
+  return `<img src="${esc(imgSrc(url))}" alt="${esc(name)}" loading="lazy" data-art="${key}" onerror="artFallback(this)">`;
 }
+function artFallback(img) { img.outerHTML = `<span class="ill">${artSvg(img.dataset.art)}</span>`; }
 /* pictures go through the local server, which only fetches from McDonald's own image hosts */
 const imgSrc = (url) => "/api/img?s=" + encodeURIComponent(SECRET) + "&u=" + encodeURIComponent(url);
 function showError(where, msg) { where.innerHTML = `<div class="err">${esc(msg)}</div>`; }
@@ -777,7 +873,8 @@ function mapSvg(items, lot) {
       <circle class="halo" r="22"/>
       <clipPath id="pc${i}"><circle r="20"/></clipPath>
       ${hasImg ? `<image href="${esc(imgSrc(x.image))}" x="-20" y="-20" width="40" height="40" preserveAspectRatio="xMidYMid slice" clip-path="url(#pc${i})"/>`
-               : `<text class="pin-emoji" text-anchor="middle" dominant-baseline="central">${esc(emojiFor(x.title) === "🍽️" ? x.district.emoji : emojiFor(x.title))}</text>`}
+               : artKey(x.title) === "meal" ? `<text class="pin-emoji" text-anchor="middle" dominant-baseline="central">${esc(x.district.emoji)}</text>`
+               : `<svg x="-17" y="-17" width="34" height="34" viewBox="0 0 64 64" class="pin-art">${ART[artKey(x.title)]}</svg>`}
       ${x.toy ? `<circle class="badge-bg" cx="20" cy="-20" r="11"/><text class="badge" x="20" y="-20" text-anchor="middle" dominant-baseline="central">${x.toy.startsWith("🧸") ? "🧸" : "🎁"}</text>` : ""}
       <title>${esc(x.title)}${x.range ? " · " + esc(x.range) : ""}</title>
     </g>`;
@@ -851,8 +948,8 @@ function campaignDialog(x) {
   const hasImg = x.image && !x.image.includes("img.example");
   const chips = x.days.slice(0, 12).map((d) => `<span class="${+d === +new Date(new Date().setHours(0, 0, 0, 0)) ? "on" : ""}">${md(d)}</span>`).join("");
   $("#dlg").classList.add("wide", "xwide");
-  openDialog(`<div class="camp-layout"><div class="camp-left">${hasImg ? `<img class="camp-art" src="${esc(imgSrc(x.image))}" alt="" onerror="this.outerHTML='<div class=&quot;camp-art-empty&quot;>${esc(emojiFor(x.title) === "🍽️" ? x.district.emoji : emojiFor(x.title))}</div>'">`
-      : `<div class="camp-art-empty">${esc(emojiFor(x.title) === "🍽️" ? x.district.emoji : emojiFor(x.title))}</div>`}</div><div class="camp-right">
+  openDialog(`<div class="camp-layout"><div class="camp-left">${hasImg ? `<img class="camp-art" src="${esc(imgSrc(x.image))}" alt="" onerror="this.outerHTML='<div class=&quot;camp-art-empty&quot;>${esc(x.district.emoji)}</div>'">`
+      : `<div class="camp-art-empty">${artKey(x.title) === "meal" ? esc(x.district.emoji) : artSvg(artKey(x.title))}</div>`}</div><div class="camp-right">
     <h3>${esc(x.title)}</h3>
     <div class="camp-meta"><span class="chip ${x.when === "today" ? "gold" : ""}">${x.when === "today" ? "今天在做" : x.when === "soon" ? "即将开始" : "已经结束"}</span>
       <span class="chip">${x.district.emoji} ${esc(x.district.name)}</span>${x.toy ? `<span class="toy">${esc(x.toy)}</span>` : ""}</div>
@@ -1405,6 +1502,7 @@ async function renderOrders() {
     m.querySelector("[data-go]").addEventListener("click", () => go("order")); return; }
   const pick = state.lastOrder || list[0].order_id;
   m.innerHTML = `<h2>订单</h2><p class="sub">最近点过的，点一单看进度和取餐码。</p>
+    <section class="intake" id="intake">${loader("算算吃了多少…", "", true)}</section>
     <div class="orders"><section class="olist">${list.map((o) => `
       <button class="oitem" data-oid="${esc(o.order_id)}" aria-current="${o.order_id === pick}">
         <div class="row"><b>${esc((o.items || []).map((x) => x.name + (x.quantity > 1 ? " x" + x.quantity : "")).join("、"))}</b><span class="num">¥${esc(o.pay_yuan)}</span></div>
@@ -1414,6 +1512,71 @@ async function renderOrders() {
     m.querySelectorAll("[data-oid]").forEach((x) => x.setAttribute("aria-current", String(x === b))); showTrack(b.dataset.oid);
   }));
   showTrack(pick);
+  loadIntake();
+}
+
+/* ---------------------------------------------------------------- intake stats
+   One hero number per period + energy split + a 30-day bar chart (single series, one hue,
+   a dashed reference line at the daily reference). Values are labelled in ink, never in the bar color. */
+const PERIODS = [["today", "今天"], ["week", "本周"], ["month", "本月"], ["all", "全部记录"]];
+async function loadIntake() {
+  const box = document.getElementById("intake"); if (!box) return;
+  const d = await run(["stats"]);
+  if (!document.getElementById("intake")) return;
+  if (!d.ok) { box.innerHTML = `<p class="muted">${esc(d.error)}</p>`; return; }
+  if (!d.recorded_orders) { box.innerHTML = `<p class="muted">点过的单会在这里统计热量：今天、本周、本月吃了多少。</p>`; return; }
+  const ref = (d.reference || {}).kcal_per_day || 2000, sodiumRef = (d.reference || {}).sodium_mg_per_day || 2000;
+  const draw = () => {
+    const key = state.intakeP || "week", p = d.periods[key] || {};
+    const split = p.energy_split || null;
+    const share = p.share_of_daily_kcal != null ? Math.round(p.share_of_daily_kcal * 100) : null;
+    const days = d.daily || [];
+    const max = Math.max(ref * 1.1, ...days.map((x) => x.kcal));
+    const W = 600, H = 150, pad = 22, bw = (W - 8) / days.length;
+    const y = (v) => H - pad - (v / max) * (H - pad - 8);
+    const bars = days.map((x, i) => x.kcal ? `<g class="bar" data-i="${i}"><rect x="${(4 + i * bw + 1).toFixed(1)}" y="${y(x.kcal).toFixed(1)}" width="${Math.max(bw - 2, 2).toFixed(1)}" height="${(H - pad - y(x.kcal)).toFixed(1)}" rx="3"/>
+        <rect class="hit" x="${(4 + i * bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H - pad}"/></g>` : "").join("");
+    const ticks = days.map((x, i) => (i % 7 === days.length % 7 || i === days.length - 1) ? `<text x="${(4 + i * bw + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(x.date.slice(5))}</text>` : "").join("");
+    box.innerHTML = `<div class="intake-head"><h3>吃了多少 <small class="muted">只算麦当劳订单</small></h3>
+        <div class="seg" role="group" aria-label="时间">${PERIODS.map(([k, t]) => `<button data-p="${k}" aria-pressed="${k === key}">${t}</button>`).join("")}</div></div>
+      <div class="intake-grid">
+        <div class="hero-kcal">
+          <div class="num big">${(p.kcal || 0).toLocaleString()}<small> 千卡</small></div>
+          <p class="muted">${p.orders || 0} 单${key !== "today" && p.kcal ? ` · 日均 ${p.kcal_per_day.toLocaleString()} 千卡` : ""}${share != null && p.kcal ? ` · 约 ${share}% 参考量` : ""}</p>
+          ${split ? `<div class="split" role="img" aria-label="能量来源：蛋白质 ${Math.round(split.protein * 100)}%，脂肪 ${Math.round(split.fat * 100)}%，碳水 ${Math.round(split.carbs * 100)}%">
+              <i style="flex:${split.protein};background:var(--grape)"></i><i style="flex:${split.fat};background:#e8a400"></i><i style="flex:${split.carbs};background:var(--pickle)"></i></div>
+            <ul class="split-legend">
+              <li><i style="background:var(--grape)"></i>蛋白质 <b>${p.protein_g} 克</b> <span class="muted">${Math.round(split.protein * 100)}%</span></li>
+              <li><i style="background:#e8a400"></i>脂肪 <b>${p.fat_g} 克</b> <span class="muted">${Math.round(split.fat * 100)}%</span></li>
+              <li><i style="background:var(--pickle)"></i>碳水 <b>${p.carbs_g} 克</b> <span class="muted">${Math.round(split.carbs * 100)}%</span></li>
+            </ul>
+            <p class="muted" style="font-size:13px;margin:6px 0 0">钠 ${(p.sodium_mg || 0).toLocaleString()} 毫克（参考上限 ${sodiumRef.toLocaleString()}/天）· 花费 ${yuan((p.spent_fen || 0) / 100)}</p>` : `<p class="muted">这段时间没有点餐记录。</p>`}
+        </div>
+        <figure class="kcal-chart">
+          <figcaption>最近 ${days.length} 天每天的热量 <span class="muted">· 虚线是参考量 ${ref.toLocaleString()} 千卡</span></figcaption>
+          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="最近 ${days.length} 天每天从麦当劳摄入的热量">
+            <line class="refline" x1="4" x2="${W - 4}" y1="${y(ref).toFixed(1)}" y2="${y(ref).toFixed(1)}"/>
+            <text class="reflabel" x="${W - 6}" y="${(y(ref) - 4).toFixed(1)}" text-anchor="end">${ref}</text>
+            <line class="base" x1="4" x2="${W - 4}" y1="${H - pad}" y2="${H - pad}"/>${bars}${ticks}
+          </svg>
+          <div class="tip" hidden></div>
+        </figure>
+        ${(p.top || []).length ? `<div class="top-items"><b>热量来源</b>${p.top.slice(0, 4).map((x) => `<div class="ti"><span class="ill">${artSvg(artKey(x.name))}</span><span>${esc(x.name)} <small class="muted">x${x.count}</small></span><span class="num">${x.kcal.toLocaleString()} 千卡</span></div>`).join("")}</div>` : ""}
+      </div>
+      ${(p.not_counted || []).length ? `<p class="muted" style="font-size:12px">没查到营养数据、没算进去：${p.not_counted.map((x) => esc(x.name)).join("、")}</p>` : ""}
+      <p class="muted" style="font-size:12px;margin:4px 0 0">营养数据来自麦当劳官方营养表，套餐按组成拆开计算；参考量按成年人（${ref} 千卡/天），只作对照。${d.since ? `记录从 ${esc(d.since)} 开始，越用越完整。` : ""}</p>`;
+    box.querySelectorAll("[data-p]").forEach((b) => b.addEventListener("click", () => { state.intakeP = b.dataset.p; draw(); }));
+    const tip = box.querySelector(".kcal-chart .tip"), fig = box.querySelector(".kcal-chart");
+    box.querySelectorAll(".bar").forEach((g) => {
+      g.addEventListener("mouseenter", () => {
+        const x = days[Number(g.dataset.i)], r = g.getBoundingClientRect(), f = fig.getBoundingClientRect();
+        tip.innerHTML = `<b>${esc(x.date.slice(5))}</b> ${x.kcal.toLocaleString()} 千卡 · ${x.orders} 单`;
+        tip.hidden = false; tip.style.left = `${r.left - f.left + r.width / 2}px`; tip.style.top = `${r.top - f.top - 8}px`;
+      });
+      g.addEventListener("mouseleave", () => { tip.hidden = true; });
+    });
+  };
+  draw();
 }
 async function loadSurvey(oid) {
   const d = await run(["survey", oid]);

@@ -313,17 +313,32 @@ class DemoClient:
 
     def _order_list(self) -> dict[str, Any]:
         t = self.today
+        combo = ("巨无霸套餐", 1, [("巨无霸", 1), ("中份薯条", 1), ("中杯可口可乐", 1)])
         rows = [
-            ("1030938700000000000000000001", "制作中", t, [("巨无霸", 1), ("中杯拿铁", 1)], "25"),
-            ("1030938700000000000000000000", "已完成", t - timedelta(days=4),
+            ("1030938700000000000000000001", "制作中", t, 12, [("巨无霸", 1), ("中杯拿铁", 1)], "25"),
+            ("1030938700000000000000000002", "订单已完成", t - timedelta(days=1), 19, [combo], "39"),
+            ("1030938700000000000000000003", "订单已完成", t - timedelta(days=2), 8, [("猪柳麦满分", 1), ("中杯美式", 1)], "21"),
+            ("1030938700000000000000000000", "已完成", t - timedelta(days=4), 12,
              [("麦辣鸡腿堡", 2), ("中份薯条", 1), ("中杯可口可乐", 1)], "38.5"),
+            ("1030938700000000000000000004", "订单已完成", t - timedelta(days=6), 15, [("麦乐鸡 5 块", 2), ("麦旋风", 1)], "36"),
+            ("1030938700000000000000000005", "订单已取消", t - timedelta(days=9), 12, [("麦辣鸡腿堡", 1)], "23.5"),
+            ("1030938700000000000000000006", "订单已完成", t - timedelta(days=13), 18,
+             [("麦辣鸡腿堡", 1), ("大份薯条", 1), ("圆筒冰淇淋", 1)], "42.5"),
+            ("1030938700000000000000000007", "订单已完成", t - timedelta(days=20), 12, [combo], "39"),
         ]
+
+        def product(p: tuple) -> dict[str, Any]:
+            if len(p) == 3:   # a combo, listed with its parts like the live server does
+                name, q, parts = p
+                return {"productName": name, "quantity": q,
+                        "comboItemList": [{"name": n, "quantity": k, "productCode": ""} for n, k in parts]}
+            return {"productName": p[0], "quantity": p[1]}
         return {"list": [
-            {"orderId": oid, "orderStatus": st, "createTime": f"{day:%Y-%m-%d} 12:21:08",
+            {"orderId": oid, "orderStatus": st, "createTime": f"{day:%Y-%m-%d} {hh:02d}:21:08",
              "storeCode": _STORES[0]["storeCode"], "storeName": _STORES[0]["storeName"],
              "beType": "1", "orderType": "1", "realTotalAmount": amt,
-             "orderProductList": [{"productName": n, "quantity": q} for n, q in items]}
-            for oid, st, day, items, amt in rows]}
+             "orderProductList": [product(p) for p in items]}
+            for oid, st, day, hh, items, amt in rows]}
 
     def _query_survey_coupon(self, orderId: str) -> dict[str, Any]:
         if not str(orderId).endswith("0000"):
@@ -367,6 +382,7 @@ class DemoClient:
             ("圆筒冰淇淋", 607, 145, 4, 5, 22, 60, 120),
             ("麦旋风", 1255, 300, 7, 10, 46, 160, 210),
             ("猪柳麦满分", 1288, 308, 16, 16, 24, 781, 213),
+            ("中杯可口可乐", 548, 131, 0, 0, 33, 10, 0),
         ]
         head = "{productName,nutritionDescription,energyKj,energyKcal,protein,fat,carbohydrate,sodium,calcium}:\n"
         body = "".join(f"  {n},null,{kj},{kc},{p},{f},{c},{na},{ca}\n" for n, kj, kc, p, f, c, na, ca in rows)
