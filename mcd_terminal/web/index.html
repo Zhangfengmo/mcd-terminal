@@ -13,7 +13,7 @@
 :root {
   --ink: #221c35;          /* text and outlines */
   --ink-2: #5d5775;
-  --ink-3: #8f8aa6;
+  --ink-3: #78738f;
   --bg: #eef3ff;           /* soda blue */
   --surface: #ffffff;
   --sunken: #f4f6fd;
@@ -301,13 +301,13 @@ html, body { overflow-x: clip; }
 .rline { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 7px 0; border-bottom: 1px dotted #d8cfc1; }
 .rline .what { font-family: var(--font); font-size: 14px; font-weight: 600; }
 .rline .how { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 12px; color: #847a6d; }
-.rline .was { color: #a99f92; text-decoration: line-through; margin-right: 6px; }
+.rline .was { color: #857a6b; text-decoration: line-through; margin-right: 6px; }
 .pay { font-weight: 800; }
 .stamp { display: inline-block; font-family: var(--font); font-size: 11px; font-weight: 900; padding: 0 7px; border-radius: 99px; color: #fff; margin-right: 4px; }
 .stamp.s-coupon { background: var(--grape); }
 .stamp.s-points { background: var(--sun); color: #221c35; }
 .stamp.s-cash { background: #b9b4c9; }
-.rm { border: 0; background: none; padding: 0 2px; font-family: var(--font); font-size: 12px; font-weight: 700; color: #b0a594; text-decoration: underline; text-underline-offset: 2px; }
+.rm { border: 0; background: none; padding: 0 2px; font-family: var(--font); font-size: 12px; font-weight: 700; color: #7a6f60; text-decoration: underline; text-underline-offset: 2px; }
 .rm:hover, .rm:focus-visible { color: var(--ketchup); }
 .totals { margin-top: 12px; display: grid; gap: 3px; }
 .totals div { display: flex; justify-content: space-between; }
@@ -569,6 +569,11 @@ footer a { color: inherit; }
 .game-body { display: grid; justify-items: center; }
 .game-canvas { position: relative; width: min(100%, 380px); }
 .game-canvas canvas { width: 100%; display: block; border: 2px solid var(--ink); border-radius: var(--r-l); box-shadow: var(--shadow); touch-action: none; background: #fff; }
+/* Light islands: the receipt is paper and the game boards draw a light scene, so text inside them
+   keeps the light-theme colors in dark mode too. */
+.receipt, .game-canvas { --ink: #221c35; --ink-2: #5d5775; --ink-3: #6f6a86; --surface: #ffffff; --sunken: #f4f6fd;
+  --line: #dcdff0; --on-ink: #ffffff; --warn-ink: #a8430f; --ok-ink: #0d7a52; --ketchup-soft: #ffe4dc; --sun-soft: #fff2c8;
+  --grape-soft: #ece6ff; --pickle-soft: #dcf6ea; --shadow-s: 2px 2px 0 #221c35; color: var(--ink); }
 .game-over { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: rgba(255, 253, 247, .92); border-radius: var(--r-l); padding: 20px; }
 .game-over[hidden] { display: none; }
 .game-over h3 { font-size: 26px; margin: 0 0 6px; }
@@ -593,7 +598,7 @@ footer a { color: inherit; }
 .guess-list li { display: grid; grid-template-columns: 28px 90px 1fr; align-items: center; gap: 8px; border: 2px solid var(--ink); border-radius: 10px; padding: 6px 10px; background: var(--surface); }
 .guess-list li.hit { background: var(--pickle-soft); }
 .guess-form { display: flex; gap: 8px; } .guess-form input { flex: 1; font: inherit; font-size: 18px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 12px; }
-.guess-end { border: 2px dashed var(--ink); border-radius: var(--r-m); padding: 12px 14px; background: var(--paper); }
+.guess-end { border: 2px dashed var(--ink); border-radius: var(--r-m); padding: 12px 14px; background: var(--surface); }
 .guess-plan { margin: 6px 0; padding-left: 18px; font-size: 14px; }
 .share { font: inherit; font-weight: 700; background: var(--sunken); padding: 8px 10px; border-radius: 10px; white-space: pre-wrap; }
 .mem-bar { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; font-weight: 700; }
@@ -609,7 +614,7 @@ footer a { color: inherit; }
 .tube .ill { width: 64px; }
 .tube.shaking { animation: shake .18s linear infinite; }
 @keyframes shake { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
-.lot-card { border: 2px solid var(--ink); border-radius: var(--r-l); padding: 16px 18px; background: var(--paper); box-shadow: var(--shadow); text-align: center; }
+.lot-card { border: 2px solid var(--ink); border-radius: var(--r-l); padding: 16px 18px; background: var(--surface); box-shadow: var(--shadow); text-align: center; }
 .lot-card h3 { font-size: 28px; margin: 4px 0; color: var(--ketchup); }
 .yiji { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; text-align: left; }
 .yiji div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
