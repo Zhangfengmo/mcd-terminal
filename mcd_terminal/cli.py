@@ -1325,6 +1325,9 @@ def stats(days: int = typer.Option(30, "--days", help="每日热量图看最近�
         if m["top"]:
             label = "本月" if sums["month"]["orders"] else "记录里"
             ui.tip(f"{label}热量来源最多：" + "、".join(f"{x['name']} x{x['count']}（{x['kcal']:,} 千卡）" for x in m["top"][:3]))
+        if m.get("energy_split"):
+            sp = m["energy_split"]
+            ui.tip(f"{'本月' if sums['month']['orders'] else '记录里'}热量构成：蛋白质 {sp['protein'] * 100:.0f}% · 脂肪 {sp['fat'] * 100:.0f}% · 碳水 {sp['carbs'] * 100:.0f}%")
         missing = {x["name"] for k in keys for x in sums[k]["not_counted"]}
         if missing:
             ui.tip(Text(f"有 {len(missing)} 样在营养表里查不到，没算进去：" + "、".join(sorted(missing)[:6]), style=ui.DIM))
@@ -2075,28 +2078,117 @@ def history(
 
 
 @app.command()
-def calendar(day: Optional[str] = typer.Option(None, "--date", help="查看某天前后的活动，格式 YYYY-MM-DD。")) -> None:
-    """活动日历：今天和最近几天有什么活动。"""
+def calendar(
+    name: Optional[str] = typer.Argument(None, help="活动名（一部分即可）：看详情、本店能点的活动餐品和下单命令。"),
+    day: Optional[str] = typer.Option(None, "--date", help="查看某天前后的活动，格式 YYYY-MM-DD。"),
+    by_map: bool = typer.Option(False, "--map", "-m", help="按活动地图的街区分组（早餐小镇、咖啡山丘、优惠大街…）。"),
+    when: Optional[str] = typer.Option(None, "--when", help="只看 today 今天在做 / soon 即将开始 / past 已经结束。"),
+    toys: bool = typer.Option(False, "--toys", help="只看有玩具或周边的活动。"),
+) -> None:
+    """活动日历和活动地图：最近有什么活动，按街区分组、筛选，或者看某个活动能点什么。"""
+    from . import campaigns as cmp
+    if when and when not in cmp.WHEN:
+        raise typer.BadParameter("--when 只能是 today、soon 或 past")
+
     def go() -> None:
         args = {"specifiedDate": day} if day else None
         items = parse_calendar(ui.call(state.client, "campaign-calendar", args,
                                        summary=lambda d: f"{len(parse_calendar(d))} 个活动"))
+        today = _now().date()
+        merged = cmp.merge(items, today)
+        if name:
+            return _campaign_detail(cmp, merged, name, today)
+        shown = [c for c in merged if (not when or c.when == when) and (not toys or c.toy)]
         _out(campaigns=[{"day": it.day, "tag": it.tag, "title": it.title, "intro": it.intro, "detail": it.detail or None,
-                         "image": it.image or None} for it in items])
-        if not items:
-            ui.say("这段时间没有活动。")
+                         "image": it.image or None} for it in items],
+             merged=[c.as_dict(today) for c in shown])
+        if not shown:
+            ui.say("这段时间没有活动。" if not (when or toys) else "没有符合条件的活动。")
             return
-        last_day = None
-        for it in items:
-            if (it.day, it.tag) != last_day:
-                last_day = (it.day, it.tag)
-                style = ui.ACCENT if it.tag.startswith("今") else (ui.DIM if "往期" in it.tag else "bold")
+        if by_map:
+            groups: dict[str, list] = {}
+            for c in shown:
+                groups.setdefault(c.district[0], []).append(c)
+            order = [d[0] for d in cmp.DISTRICTS] + [cmp.OTHER[0]]
+            for key in sorted(groups, key=order.index):
+                _, dname, emoji = groups[key][0].district
                 ui.console.print()
-                ui.console.print(ui._indent(Text.assemble((it.day, style), (f"  {it.tag}", ui.FAINT))))
-            ui.console.print(ui._indent(Text.assemble(("• ", ui.FAINT), (it.title, "" if "往期" not in it.tag else ui.DIM)), 4))
-            if it.intro and "往期" not in it.tag:
-                ui.console.print(ui._indent(ui.dim(it.intro), 6))
+                ui.console.print(ui._indent(Text.assemble((f"{emoji} {dname}", "bold"), (f"  {len(groups[key])} 个活动", ui.FAINT))))
+                for c in groups[key]:
+                    _campaign_line(cmp, c, district=False)
+        else:
+            last = None
+            for c in shown:
+                if c.when != last:
+                    last = c.when
+                    style = ui.ACCENT if c.when == "today" else (ui.DIM if c.when == "past" else "bold")
+                    ui.console.print()
+                    ui.console.print(ui._indent(Text(cmp.WHEN[c.when], style=style)))
+                _campaign_line(cmp, c)
+        ui.console.print()
+        ui.tip(Text.assemble(("看某个活动能点什么：", ""), ui.cmd("mcd calendar <活动名>"),
+                             ("；按街区看：", ""), ui.cmd("mcd calendar --map")))
     _run("calendar", go)
+
+
+def _campaign_line(cmp: Any, c: Any, district: bool = True) -> None:
+    past = c.when == "past"
+    ui.console.print(ui._indent(Text.assemble(("• ", ui.FAINT), (c.title, ui.DIM if past else ""),
+                                              (f"  {c.range}", ui.FAINT),
+                                              (f"  {c.toy}", ui.ACCENT) if c.toy else ("", ""),
+                                              (f"  {c.district[2]} {c.district[1]}", ui.FAINT) if district else ("", "")), 4))
+    if c.intro and not past:
+        ui.console.print(ui._indent(ui.dim(c.intro), 6))
+
+
+def _campaign_detail(cmp: Any, merged: list, query: str, today: date) -> None:
+    from .ordering import load_menu, pick_scene
+    found = cmp.find(merged, query)
+    if not found:
+        raise McdError(f"活动日历里没找到「{query}」，先运行 mcd calendar 看看有哪些")
+    if len(found) > 1:
+        names = "、".join(c.title for c in found[:5])
+        raise McdError(f"「{query}」对应好几个活动：{names}，说得再具体一点")
+    c = found[0]
+    menu_err = None
+    dishes: list = []
+    store = None
+    try:
+        scene = pick_scene(state.client, state.prefs, state.prefs.get("mode") or "pickup", None, None, None, None, None, 1)
+        store = scene.store_name
+        dishes = cmp.items_on_menu(c, load_menu(state.client, scene))
+    except McdError as e:
+        menu_err = str(e)
+    order_cmd = ("mcd order " + " ".join(_q(m.name) for m in dishes)) if dishes else None
+    remind_cmd = f"mcd remind campaign -t {_q(c.title)}" if c.when != "past" else None
+    _out(campaign=c.as_dict(today), store=store,
+         items=[{"name": m.name, "code": m.code, "price_yuan": agent.yuan(m.price_fen), "image": m.image or None,
+                 "toy": cmp.toy_kind(m.name) or None} for m in dishes],
+         order_command=order_cmd, remind_command=remind_cmd, menu_error=menu_err)
+    ui.console.print()
+    ui.say(Text.assemble((c.title, "bold"), (f"  {cmp.WHEN[c.when]} · {c.range}", ui.ACCENT if c.when == "today" else ui.DIM)))
+    ui.console.print(ui._indent(Text.assemble((f"{c.district[2]} {c.district[1]}", ui.DIM),
+                                              (f"  ·  {c.toy}", ui.ACCENT) if c.toy else ("", ""))))
+    if c.detail or c.intro:
+        ui.console.print()
+        ui.console.print(ui._indent(Text(c.detail or c.intro), 2))
+    ui.console.print()
+    if menu_err:
+        ui.say(Text.assemble(("没能打开门店菜单：", ui.DIM), (menu_err, "")))
+    elif not dishes:
+        ui.say(Text(f"{store or '你的门店'}的菜单里现在没有这个活动的餐品，可能只在部分门店供应、已经售罄或还没开始。", style=ui.DIM))
+        ui.tip(Text.assemble(("换一家门店：", ""), ui.cmd("mcd config store -c <城市> -l <附近地点>")))
+    else:
+        ui.say(Text(f"{store}能点的活动餐品", style="bold"))
+        for m in dishes:
+            toy = cmp.toy_kind(m.name)
+            ui.console.print(ui._indent(Text.assemble(("• ", ui.FAINT), (m.name, ""), (f"  ¥{m.price_fen / 100:.2f}", ui.DIM),
+                                                      (f"  {toy}", ui.ACCENT) if toy else ("", "")), 4))
+        ui.tip(Text.assemble(("点它们（自动叠券和积分，下单前会再问你）：", ""), ui.cmd(order_cmd)))
+    if remind_cmd:
+        ui.tip(Text.assemble(("活动开始前提醒我：", ""), ui.cmd(remind_cmd)))
+    if dishes and c.when != "past":
+        _offer_order([m.name for m in dishes], "点活动餐品？")
 
 
 @app.command()
@@ -2233,7 +2325,8 @@ def web(
 
 
 # ================================================================== games
-GAMES = {"fries": "接薯条", "stack": "汉堡叠叠乐", "slot": "麦麦老虎机", "guess": "麦德尔猜价", "fortune": "麦麦签"}
+GAMES = {"fries": "接薯条", "stack": "汉堡叠叠乐", "slot": "麦麦老虎机", "guess": "麦德尔猜价", "fortune": "麦麦签",
+         "memory": "翻翻乐", "persona": "麦麦人格"}
 READY_WORDS = ("待取", "可取", "请取餐", "已出餐", "制作完成", "配送中", "已送达", "完成")
 
 
@@ -2262,24 +2355,29 @@ def _maidle_no(day: date) -> int:
 
 @app.command()
 def play(
-    game: Optional[str] = typer.Argument(None, help="fries 接薯条 / stack 汉堡叠叠乐 / slot 麦麦老虎机 / guess 麦德尔猜价 / fortune 麦麦签；不写就选一个。"),
+    game: Optional[str] = typer.Argument(None, help="fries 接薯条 / stack 汉堡叠叠乐 / slot 麦麦老虎机 / guess 麦德尔猜价 / fortune 麦麦签 / memory 翻翻乐 / persona 麦麦人格；不写就选一个。"),
     wait: Optional[str] = typer.Option(None, "--wait", help="接薯条：边玩边等餐，写订单号或 last；餐好了自动停下显示取餐码。"),
     budget: Optional[float] = typer.Option(None, "--budget", help="老虎机：这一套最多付多少钱（用券和积分之后）。"),
     kcal: Optional[int] = typer.Option(None, "--kcal", help="老虎机：这一套最多多少千卡。"),
     again: bool = typer.Option(False, "--again", help="麦德尔：今天的题做过了，再来一道加练题。"),
+    pick: Optional[str] = typer.Option(None, "--pick", help="麦麦人格：直接给出 6 道题的选项序号，如 1,3,2,4,1,2（给 agent 用）。"),
     ascii_only: bool = typer.Option(False, "--ascii", help="终端显示不了 emoji 时用字母代替。"),
 ) -> None:
-    """游戏厅：接薯条、汉堡叠叠乐、麦麦老虎机、麦德尔猜价、麦麦签。老虎机和猜价用的是你的真实菜单、券和积分。"""
+    """游戏厅：接薯条、汉堡叠叠乐、麦麦老虎机、麦德尔猜价、麦麦签、翻翻乐、麦麦人格。老虎机和猜价用的是你的真实菜单、券和积分。"""
     from .games.keys import interactive
 
     if game and game not in GAMES:
-        raise typer.BadParameter("游戏只有 fries、stack、slot、guess、fortune")
+        raise typer.BadParameter("游戏只有 " + "、".join(GAMES))
     if game == "fortune":
         return _run("play", _play_fortune)
+    if game == "persona" and (state.json or pick):
+        return _run("play", lambda: _persona_data(pick))
     if state.json:
         if game not in ("slot", "guess"):
-            raise typer.BadParameter("--json 只支持 slot、guess 和 fortune（给网页版和 agent 用），其他游戏请在终端里玩")
+            raise typer.BadParameter("--json 只支持 slot、guess、fortune 和 persona（给网页版和 agent 用），其他游戏请在终端里玩")
         return _run("play", lambda: _game_data(game, budget, kcal, again))
+    if game == "persona":
+        return _run("play", _play_persona)
     if not interactive():
         raise typer.BadParameter("游戏要在终端里玩（需要能读键盘）")
     if not game:
@@ -2288,7 +2386,9 @@ def play(
                                                      "stack": "：按空格把馅料叠上去，越叠越高",
                                                      "slot": "：转出今天吃啥，按你的券和积分算好价",
                                                      "guess": "：每日一题，猜叠券叠积分后最少付多少",
-                                                     "fortune": "：摇一支今天的签"}[k] for k in keys_],
+                                                     "fortune": "：摇一支今天的签",
+                                                     "memory": "：翻牌配对，记住每样餐品在哪",
+                                                     "persona": "：6 道题测出你的麦麦人格和本命套餐"}[k] for k in keys_],
                       "玩哪个？", [GAMES[k] for k in keys_] + ["不玩了"])
         if i is None or i >= len(keys_):
             return
@@ -2301,19 +2401,117 @@ def play(
         _run("play", lambda: _play_slot(budget, kcal))
     elif game == "fortune":
         _run("play", _play_fortune)
+    elif game == "memory":
+        _play_memory(ascii_only)
+    elif game == "persona":
+        _run("play", _play_persona)
     else:
         _run("play", lambda: _play_guess(again))
+
+
+def _menu_names() -> list[str]:
+    try:
+        return [m.name for m in parse_menu(state.client.call("query-meals", {"storeCode": (state.prefs.get("store_pickup") or {}).get("code", ""),
+                                                                             "orderType": 1, "beType": 1}))]
+    except McdError:
+        return []
+
+
+def _persona_out(answers: list[str]) -> dict[str, Any]:
+    from .games.persona import match_menu, result
+    r = result(answers)
+    r["menu_items"] = match_menu(r["order"], _menu_names())
+    if r["menu_items"]:
+        r["order_command"] = "mcd order " + " ".join(r["menu_items"])
+    return r
+
+
+def _persona_data(pick: Optional[str]) -> None:
+    """--json: the quiz (so an agent can ask it), or the result for --pick 1,3,2,..."""
+    from .games.persona import PERSONAS, QUESTIONS
+    if not pick:
+        _out(status="quiz", questions=[{"q": q, "options": [t for t, _ in opts]} for q, opts in QUESTIONS],
+             personas=[{"key": k, "name": v[0], "text": v[2]} for k, v in PERSONAS.items()],
+             next="让用户逐题选择，然后 mcd --json play persona --pick <每题选项序号，逗号分隔>")
+        return
+    nums = [x.strip() for x in pick.replace("，", ",").split(",") if x.strip()]
+    if len(nums) != len(QUESTIONS) or not all(x.isdigit() and 1 <= int(x) <= 4 for x in nums):
+        raise typer.BadParameter(f"--pick 要 {len(QUESTIONS)} 个 1-4 的数字，逗号分隔，如 1,3,2,4,1,2")
+    answers = [QUESTIONS[i][1][int(x) - 1][1] for i, x in enumerate(nums)]
+    r = _persona_out(answers)
+    _out(status="result", persona=r)
+    _show_persona(r)
+
+
+def _show_persona(r: dict[str, Any]) -> None:
+    from rich import box as rbox
+    from rich.panel import Panel
+    body = Text.assemble(("你的麦麦人格\n", ui.DIM), (r["name"] + "\n", f"bold {ui.ACCENT}"), (r["text"] + "\n\n", ""),
+                         ("本命套餐  ", ui.DIM), (" + ".join(r["menu_items"] or r["order"]), f"bold {ui.GREEN}"))
+    ui.console.print()
+    ui.console.print(ui._indent(Panel(body, title="麦麦人格", box=rbox.ROUNDED, border_style=ui.ACCENT, padding=(1, 3), expand=False)))
+    if r.get("order_command"):
+        ui.tip(Text.assemble(("来一份本命套餐：", ""), ui.cmd(r["order_command"])))
+    ui.tip("分享给朋友：" + r["share"])
+
+
+def _play_persona() -> None:
+    from .games.persona import QUESTIONS
+    answers = []
+    for n, (q, opts) in enumerate(QUESTIONS, 1):
+        i = ui.select(f"麦麦人格 {n}/{len(QUESTIONS)}", [], q, [t for t, _ in opts] + ["不玩了"])
+        if i is None or i >= len(opts):
+            return
+        answers.append(opts[i][1])
+    r = _persona_out(answers)
+    _out(status="result", persona=r)
+    _show_persona(r)
+    _offer_order(r["menu_items"], "来一份本命套餐？")
+
+
+def _play_memory(ascii_only: bool) -> None:
+    from rich.live import Live
+    from .games.keys import Keys
+    from .games.memory import Memory, render
+
+    scores = _scores()
+    best = int(scores.get("memory", 0)) or None
+    g = Memory()
+    with Keys() as k, Live(render(g, best, ascii_only), console=ui.console, screen=True, auto_refresh=False) as live:
+        last = time.monotonic()
+        end_at = None
+        while True:
+            key = k.poll(1 / 30)
+            if key in ("q", "esc"):
+                break
+            if key in ("up", "down", "left", "right"):
+                g.move(key)
+            elif key in ("space", "enter"):
+                g.flip()
+                if g.won:
+                    end_at = time.monotonic() + 1.2
+            now = time.monotonic()
+            g.step(min(now - last, 0.1))
+            last = now
+            live.update(render(g, best, ascii_only), refresh=True)
+            if end_at and now > end_at:
+                break
+    if not g.won:
+        ui.tip(f"翻翻乐：配对了 {len(g.done) // 2}/8，下次再来")
+        return
+    rec = best is None or g.moves < best
+    ui.say(Text.assemble(("翻翻乐 全部配对 ", "bold"), (f"{g.moves} 步 {int(g.t)} 秒", f"bold {ui.ACCENT}"),
+                         ("  新纪录！" if rec else f"  最少 {best} 步", ui.GREEN if rec else ui.DIM)))
+    if rec:
+        scores["memory"] = g.moves
+        _save_scores(scores)
 
 
 def _play_fortune() -> None:
     from rich import box as rbox
     from rich.panel import Panel
     from .games.fortune import draw
-    try:
-        menu = [m.name for m in parse_menu(state.client.call("query-meals", {"storeCode": (state.prefs.get("store_pickup") or {}).get("code", ""),
-                                                                             "orderType": 1, "beType": 1}))]
-    except McdError:
-        menu = []
+    menu = _menu_names()
     day = _now().date().isoformat()
     f = draw(day, menu)
     _out(status="drawn", date=day, fortune=f)
@@ -2468,6 +2666,21 @@ def _game_data(game: str, budget: Optional[float], kcal: Optional[int], again: b
          coupons=[c.title for c in k.owned if c.price_fen is not None][:6],
          cart=[{"name": m.name, "price_yuan": agent.yuan(m.price_fen), "image": m.image or None} for m in items],
          answer=_combo_out(k, items, plan))
+
+
+def _offer_order(names: list[str], question: str) -> None:
+    """Like the web's "加入购物车 → 去点餐": hand the dishes to the normal order flow (which still asks
+    before placing anything). Only in a real terminal, so scripts and agents never block here."""
+    from .games.keys import interactive
+    if not names or state.json or not interactive():
+        return
+    i = ui.select(question, [Text(" + ".join(names))], "现在点吗？", ["点这些（先看怎么付最省，确认后才下单）", "不用了"])
+    if i == 0:
+        ui.console.print()
+        try:
+            app(["order", *names], standalone_mode=False, prog_name="mcd")
+        except SystemExit:
+            pass
 
 
 def _play_slot(budget: Optional[float], kcal: Optional[int]) -> None:

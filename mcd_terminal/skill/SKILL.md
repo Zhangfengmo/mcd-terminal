@@ -64,10 +64,12 @@ description: 麦当劳省钱点餐助手。帮用户点麦当劳、查积分和�
 | “给公司订团餐，看看怎么凑满减” | `mcd --json order <餐品> --group`，看 `group_promotions`：`applied` 是已享受的一档，`next.add_yuan` 是再加多少到下一档、`next.fill_with` 是刚好够的一样 |
 | “券快过期了提醒我”“这个活动开始时提醒我” | `mcd --json remind coupons` / `remind campaign -t <活动名>` → 讲清楚加什么提醒 → 同意后 `confirm_with` |
 | “给我一个网页看看” | 让用户自己运行 `mcd web`（打开浏览器的图形界面，agent 不需要调用它） |
-| “最近有什么活动” | `mcd --json calendar` |
+| “最近有什么活动”“有什么带玩具/周边的活动” | `mcd --json calendar [--when today|soon|past] [--toys] [--map]`：`merged` 每个活动一条，含 `days`、`when`、`district`（活动地图的街区）、`toy` |
+| “这个活动能点什么”“参加一下第二份半价” | `mcd --json calendar <活动名>`：`items` 是本店菜单里的活动餐品，`order_command` 照常走下单确认；`remind_command` 可设开始前提醒 |
 | “今天吃啥帮我决定”“30 块以内随便来一套” | `mcd --json play slot --budget 30`：`combo` 是用券和积分算好的一套（`pay_yuan` 实付、`kcal` 热量），用户想要就用 `mcd --json order <combo 里的餐品>` 正常下单；`--kcal 700` 限热量 |
 | “抽支签”“今天运势” | `mcd --json play fortune`：每天一签，`yi`/`ji` 宜忌、`lucky` 幸运餐品，纯娱乐 |
 | “出道题”“猜价游戏” | `mcd --json play guess`：给用户看 `cart`、`coupons`、`points`，让他猜实付多少，猜完再公布 `answer`，不要提前说答案 |
+| “测测我是哪种麦门”“麦麦人格” | `mcd --json play persona` 拿到 6 道题，逐题问用户 → `mcd --json play persona --pick 1,3,2,4,1,2`（每题选项序号）：`persona.name`/`text` 是结果，`order_command` 可以直接帮用户点本命套餐（照常走下单确认） |
 | “等餐好无聊” | 让用户在终端运行 `mcd play fries --wait last`，餐好了游戏会停下显示取餐码 |
 | “加个收货地址” | `mcd --json address add --city --name --phone --street --detail` |
 

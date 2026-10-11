@@ -85,3 +85,40 @@ def test_play_json_for_the_web_arcade(tmp_path, monkeypatch):
     assert f["fortune"]["lot"]
     bad = CliRunner().invoke(app, ["--demo", "--json", "play", "fries"])
     assert bad.exit_code != 0
+
+
+def test_memory_pairs_and_hides_mismatches():
+    from mcd_terminal.games.memory import Memory
+    g = Memory(seed=3)
+    pos = {}
+    for i, k in enumerate(g.cards):
+        pos.setdefault(k, []).append(i)
+    pairs = list(pos.values())
+    a, b = pairs[0][0], pairs[1][0]               # two different kinds
+    g.flip(a); g.flip(b)
+    assert g.moves == 1 and g.open == [a, b] and not g.done
+    g.step(1.0)
+    assert g.open == []                            # mismatched pair turns back over
+    for x, y in pairs:
+        g.flip(x); g.flip(y)
+    assert g.won and g.moves == 9 and len(g.done) == 16
+    g.cur = 0; g.move("up"); g.move("left")
+    assert g.cur == 15                             # cursor wraps around
+
+
+def test_persona_result_and_menu_match():
+    from mcd_terminal.games.persona import QUESTIONS, match_menu, result
+    assert all(len(opts) == 4 for _, opts in QUESTIONS)
+    r = result(["sweet", "coffee", "sweet", "coffee", "night", "night"])
+    assert r["key"] == "sweet"                     # tie goes to the earliest answer
+    assert match_menu(["麦旋风", "冰淇淋", "派"], ["麦旋风", "圆筒冰淇淋", "冰淇淋套餐"]) == ["麦旋风", "圆筒冰淇淋"]
+
+
+def test_persona_json_quiz_and_pick(tmp_path, monkeypatch):
+    monkeypatch.setenv("MCD_HOME", str(tmp_path))
+    q = _json("play", "persona")
+    assert q["status"] == "quiz" and len(q["questions"]) == 6
+    r = _json("play", "persona", "--pick", "2,2,1,1,1,1")
+    assert r["persona"]["name"] == "甜品星人" and r["persona"]["order_command"].startswith("mcd order ")
+    bad = CliRunner().invoke(app, ["--demo", "--json", "play", "persona", "--pick", "9"])
+    assert bad.exit_code != 0

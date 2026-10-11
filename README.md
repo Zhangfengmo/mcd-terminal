@@ -95,6 +95,7 @@ mcd web                           # 网页版
 | `mcd track` / `mcd orders` | 订单进度和取餐码 / 最近订单 |
 | `mcd portfolio` / `mcd spend --expiring` | 我的积分和券 / 用掉快过期的积分 |
 | `mcd party 生日派对 -c 上海 --people 6` | 派对场次和推荐，加 `--book` 预约 |
+| `mcd calendar --map` | 活动地图；`mcd calendar 活动名` 看能点什么 |
 | `mcd stats` | 吃了多少热量 |
 | `mcd play` | 游戏厅（`mcd play fries --wait last` 边等餐边玩） |
 | `mcd config` | 默认门店、地址、点餐方式 |
